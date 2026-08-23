@@ -1,61 +1,84 @@
-# Nightshift — Frontend (Phase 2: The Thinker)
+# Nightshift — Frontend (Phase 3: The Actor)
 
-Real-time Live Log Viewer & AI Reasoning Dashboard for the **Nightshift AI SRE Agent**, built with **Angular (standalone components)** and native WebSockets.
+Real-time Live Log Viewer, AI Reasoning Terminal & Human-in-the-Loop Remediation Platform for the **Nightshift AI SRE Agent**, built with **Angular (standalone components)** and native WebSockets.
 
 ---
 
 ## 📋 Features
 
-- ⚡ **Dual WebSocket Streaming**:
+- ⚡ **Multi-Stream WebSocket Architecture**:
   - `ws://localhost:8000/ws/logs`: Live log ingestion stream.
   - `ws://localhost:8000/ws/agent-thoughts`: Real-time LangGraph agent reasoning stream (Thinking Terminal).
+  - `ws://localhost:8000/ws/pending-approvals`: Live stream of actionable remediation proposals awaiting human approval.
+- 🛡️ **Pending Approvals & Human-in-the-Loop Gateway**:
+  - Live incident cards displaying plain-language root-cause hypothesis, diagnostic signature, suspect commit with direct GitHub links, and proposed action (`Restart Service` vs `Rollback Deployment`).
+  - **Inline Safety Confirmation Barrier**: Requires explicit human operator confirmation before dispatching live commands to Render.
+  - **Direct REST Integration**: Submits decision to `POST /incidents/{incident_id}/decision` and displays live execution results (deploy ID, status, and API messages).
+  - **Decision & Execution History**: Audited list of past human decisions and Render outcomes.
 - 🧠 **Thinking Terminal Panel**:
-  - Live 4-node pipeline stepper (`Filter` → `Summarize` → `Fetch Diff` → `Correlate`).
+  - Live pipeline stepper (`Filter` → `Summarize` → `Fetch Diff` → `Correlate` → `Escalate` → `Execute`).
   - Active step pulsing loader and monospaced diagnostic thought trace.
-  - Cost-gate nominal badge: Clear `"No anomaly detected — pipeline stopped"` when non-anomalous logs skip expensive LLM steps.
-  - **Root-Cause Hypothesis Card**: High-visibility hypothesis callout, suspect commit SHA pill, and dynamic colored confidence meter (🔴 Low < 50%, 🟡 Moderate 50–79%, 🟢 High ≥ 80%).
-  - **Collapsible Git Diff Inspector**: Review suspect commit diff patches right from the terminal.
-  - **Trace History Accordion**: Review past incident investigations with timestamps, service tags, and confidence scores.
+  - Root-cause hypothesis card with suspect commit SHA and dynamic colored confidence meter.
+  - Collapsible Git diff inspector.
 - 🎛️ **Flexible Workspace Layouts**:
   - **Split View (Default)**: Side-by-side view (Logs on Left, Thinking Terminal on Right).
   - **Logs Stream**: Full-width live log viewer.
   - **Thinking Terminal**: Full-width AI reasoning workspace.
-- 🔄 **Resilient Auto-Reconnection**: Independent auto-reconnection and countdown timers for both WebSockets.
-- 🎨 **Dark Ops Aesthetics**: Sleek dark console theme tailored for SREs with glowing status indicators and glassmorphic panels.
-- 🧪 **Offline Simulation Mode**: Independent simulation buttons for both Log telemetry and Agent thinking traces for local offline testing without a running backend.
+  - **Pending Approvals**: Dedicated human-in-the-loop control center with pending badge count.
+- 🔄 **Resilient Auto-Reconnection**: Independent auto-reconnection and countdown timers for all WebSockets.
+- 🧪 **Offline Simulation Mode**: Independent simulation buttons for Logs, Thinking traces, and Remediation Approvals for local offline testing.
 
 ---
 
-## 📡 WebSocket Specifications
+## 📡 API & WebSocket Specifications
 
 ### 1. Raw Log Stream
 - **URL**: `ws://localhost:8000/ws/logs`
-```json
-{
-  "timestamp": "2026-08-23T14:30:00.000Z",
-  "service": "payment-gateway",
-  "level": "error",
-  "message": "Database deadlock encountered during transaction #84102"
-}
-```
 
 ### 2. Agent Thinking Stream
 - **URL**: `ws://localhost:8000/ws/agent-thoughts`
+
+### 3. Pending Approvals Stream
+- **URL**: `ws://localhost:8000/ws/pending-approvals`
 ```json
 {
-  "timestamp": "2026-08-23T14:30:01.120Z",
-  "node": "correlate_node",
-  "status": "completed",
-  "thought": "Hypothesis generated (Confidence: 88.0%): The incident was caused by commit 7f2a18b...",
+  "incident_id": "inc-4b72ef1a",
+  "timestamp": "2026-08-23T14:45:00.000Z",
+  "service": "BloHelp",
+  "error_summary": "Fatal connection pool exhaustion and memory leak",
+  "hypothesis": "Memory exhaustion due to unclosed database connections under concurrent load",
   "confidence": 0.88,
-  "state": {
-    "is_anomaly": true,
-    "error_summary": "Database deadlock in payment-gateway",
-    "git_diff": "Commit 7f2a18b: Added unindexed foreign key...",
-    "suspect_commit": "7f2a18b",
-    "hypothesis": "The incident was caused by commit 7f2a18b...",
-    "confidence": 0.88
-  }
+  "suspect_commit": "7f2a18b",
+  "action_type": "restart",
+  "status": "pending_approval"
+}
+```
+
+### 4. Human Decision REST Endpoint
+- **URL**: `POST http://localhost:8000/incidents/{incident_id}/decision`
+- **Body**:
+```json
+{
+  "decision": "approved"
+}
+```
+- **Response**:
+```json
+{
+  "incident_id": "inc-4b72ef1a",
+  "decision": "approved",
+  "status": "executed",
+  "action_type": "restart",
+  "execution_result": {
+    "status": "success",
+    "action": "restart",
+    "timestamp": "2026-08-23T14:45:02.120Z",
+    "details": {
+      "success": true,
+      "message": "Successfully triggered restart for service BloHelp."
+    }
+  },
+  "detail": "Incident inc-4b72ef1a remediation [restart] executed successfully."
 }
 ```
 
@@ -96,5 +119,6 @@ npm run build
 ## 🧪 Testing Offline (Without Backend)
 
 1. Open `http://localhost:4200`.
-2. In the top navigation, click **"Simulate Logs"** to generate live multi-service logs.
-3. In the **Thinking Terminal** header, click **"Simulate Anomaly"** to run a complete 4-step AI incident investigation trace, or click **"Simulate Nominal"** to preview a cost-gated non-anomaly stop.
+2. In the top navigation bar, click **"Pending Approvals"**.
+3. Click **"Simulate Restart"** or **"Simulate Rollback"** to spawn a realistic remediation proposal card.
+4. Click **"Approve & Execute"** -> confirm the safety prompt -> preview the execution state transition.

@@ -58,6 +58,26 @@
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
 }
 
+.mode-btn.approvals-btn.active {
+  background: #059669;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 800;
+  animation: pulse-badge 1.5s infinite;
+}
+
 .view-mode-hint {
   font-size: 0.675rem;
   color: #64748b;
@@ -95,6 +115,10 @@
   grid-template-columns: 1fr;
 }
 
+.dashboard-main.view-approvals {
+  grid-template-columns: 1fr;
+}
+
 .workspace-pane {
   display: flex;
   flex-direction: column;
@@ -118,6 +142,11 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.approvals-pane {
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -159,4 +188,9 @@
   background: #38bdf8;
   border-radius: 50%;
   box-shadow: 0 0 6px #38bdf8;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); box-shadow: 0 0 8px rgba(245, 158, 11, 0.8); }
 }

@@ -47,10 +47,26 @@
         </svg>
         <span>Thinking Terminal</span>
       </button>
+
+      <button
+        class="mode-btn approvals-btn"
+        [class.active]="viewMode() === 'approvals'"
+        (click)="setViewMode('approvals')"
+        title="Human-in-the-Loop Remediation Approvals"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <polyline points="9 12 11 14 15 10"></polyline>
+        </svg>
+        <span>Pending Approvals</span>
+        @if (approvalService.pendingCount() > 0) {
+          <span class="pending-badge">{{ approvalService.pendingCount() }}</span>
+        }
+      </button>
     </div>
 
     <div class="view-mode-hint">
-      <span>Layout: <strong>{{ viewMode() | uppercase }}</strong> &bull; Streaming from dual WebSockets (<code>/ws/logs</code> & <code>/ws/agent-thoughts</code>)</span>
+      <span>Layout: <strong>{{ viewMode() | uppercase }}</strong> &bull; Multi-Stream WebSockets (<code>/ws/logs</code>, <code>/ws/agent-thoughts</code>, <code>/ws/pending-approvals</code>)</span>
     </div>
   </div>
 
@@ -75,16 +91,23 @@
         <app-thinking-terminal></app-thinking-terminal>
       </div>
     }
+
+    <!-- Dedicated Pending Approvals Pane -->
+    @if (viewMode() === 'approvals') {
+      <div class="workspace-pane approvals-pane">
+        <app-pending-approvals></app-pending-approvals>
+      </div>
+    }
   </main>
 
   <!-- Dashboard Footer -->
   <footer class="app-footer">
     <div class="footer-left">
       <span class="pulse-status"></span>
-      <span>NIGHTSHIFT SRE ENGINE &bull; PHASE 2 THE THINKER</span>
+      <span>NIGHTSHIFT SRE ENGINE &bull; PHASE 3 THE ACTOR</span>
     </div>
     <div class="footer-right">
-      <span>Auto-reconnection active &bull; LangGraph reasoning pipeline integrated</span>
+      <span>Human-in-the-loop checkpointing &bull; Render automated remediation integrated</span>
     </div>
   </footer>
 </div>

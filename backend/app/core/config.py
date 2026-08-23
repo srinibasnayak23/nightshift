@@ -1,5 +1,9 @@
 import os
+from dotenv import load_dotenv
 from pydantic import BaseModel
+
+# Load environment variables from .env file if present
+load_dotenv()
 
 
 class Settings(BaseModel):

@@ -75,6 +75,21 @@
   color: #c084fc;
 }
 
+.approval-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.metric-card.has-pending {
+  border-color: rgba(245, 158, 11, 0.4);
+  animation: subtle-amber-glow 2.5s infinite alternate;
+}
+
+@keyframes subtle-amber-glow {
+  0% { box-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.3); }
+}
+
 .metric-details {
   display: flex;
   flex-direction: column;
@@ -110,4 +125,8 @@
 
 .svc-text {
   color: #c084fc;
+}
+
+.approval-text {
+  color: #f59e0b;
 }
