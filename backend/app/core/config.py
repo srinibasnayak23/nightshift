@@ -34,8 +34,16 @@ class Settings(BaseModel):
 
     # GitHub Tools Settings
     github_token: str = os.getenv("GITHUB_TOKEN", "")
-    github_repo: str = os.getenv("GITHUB_REPO", "srinibasnayak23/nightshift")
+    github_repo: str = os.getenv("GITHUB_REPO", "srinibasnayak23/BloHelp")
     github_commits_limit: int = int(os.getenv("GITHUB_COMMITS_LIMIT", "5"))
+
+    # Confidence Threshold for Escalation
+    confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))
+
+    # Render API Settings (for automated remediation)
+    render_api_key: str = os.getenv("RENDER_API_KEY", "")
+    render_target_service_id: str = os.getenv("RENDER_TARGET_SERVICE_ID", "")
+    render_base_url: str = os.getenv("RENDER_BASE_URL", "https://api.render.com/v1")
 
 
 settings = Settings()

@@ -23,6 +23,7 @@ class MockStructuredModel:
             # Extract service and error hints from prompt text
             service = "unknown-service"
             for s in [
+                "blohelp",
                 "payment-gateway",
                 "auth-service",
                 "order-processor",

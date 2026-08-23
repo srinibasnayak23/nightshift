@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 class IncidentState(TypedDict):
     """LangGraph incident pipeline state."""
 
+    incident_id: str
     raw_log: str
     is_anomaly: bool
     error_summary: str
@@ -12,6 +13,9 @@ class IncidentState(TypedDict):
     suspect_commit: str
     hypothesis: str
     confidence: float
+    human_decision: str | None       # "approved" | "rejected" | None
+    action_type: str | None          # "restart" | "rollback" | None
+    execution_result: str | None
 
 
 class ErrorSummaryOutput(BaseModel):

@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routes import health_router, logs_router, ws_router
+from app.routes import health_router, incidents_router, logs_router, ws_router
 
 # Configure logging format
 logging.basicConfig(
@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     """Factory creating and configuring the FastAPI application."""
     application = FastAPI(
         title="Nightshift AI SRE - Ingestion Engine",
-        description="Phase 1: Real-time Log Ingestion and WebSocket Broadcasting API",
+        description="Phase 3: Real-time Incident Reasoning, Approvals, and Automated Remediation API",
         version=settings.app_version,
         lifespan=lifespan,
     )
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     # Register API and WebSocket routers
     application.include_router(health_router)
     application.include_router(logs_router)
+    application.include_router(incidents_router)
     application.include_router(ws_router)
 
     return application

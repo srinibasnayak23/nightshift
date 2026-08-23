@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from app.services.approval_manager import approval_manager
 from app.services.connection_manager import manager
 from app.services.thought_manager import thought_manager
 
@@ -36,3 +37,18 @@ async def websocket_agent_thoughts_endpoint(websocket: WebSocket) -> None:
     except Exception as exc:
         logger.warning(f"Agent thoughts WebSocket client error: {exc}")
         await thought_manager.disconnect(websocket)
+
+
+@router.websocket("/ws/pending-approvals")
+async def websocket_pending_approvals_endpoint(websocket: WebSocket) -> None:
+    """WebSocket endpoint streaming pending human-in-the-loop approvals (Android App integration)."""
+    await approval_manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            logger.debug(f"Received message from pending approvals client: {data}")
+    except WebSocketDisconnect:
+        await approval_manager.disconnect(websocket)
+    except Exception as exc:
+        logger.warning(f"Pending approvals WebSocket client error: {exc}")
+        await approval_manager.disconnect(websocket)
