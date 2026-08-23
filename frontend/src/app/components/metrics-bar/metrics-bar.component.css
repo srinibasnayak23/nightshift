@@ -1,0 +1,113 @@
+.metrics-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.875rem;
+  padding: 1.25rem 1.5rem 0.5rem 1.5rem;
+}
+
+.metric-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.metric-card:hover {
+  background: rgba(51, 65, 85, 0.55);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.metric-card.active {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+.metric-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.total-icon {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+
+.error-icon {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+}
+
+.metric-card.has-errors {
+  border-color: rgba(244, 63, 94, 0.3);
+  animation: subtle-red-glow 3s infinite alternate;
+}
+
+@keyframes subtle-red-glow {
+  0% { box-shadow: 0 0 0 rgba(244, 63, 94, 0); }
+  100% { box-shadow: 0 0 12px rgba(244, 63, 94, 0.25); }
+}
+
+.warn-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.info-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.svc-icon {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+.metric-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.metric-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #f8fafc;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+}
+
+.error-text {
+  color: #fb7185;
+}
+
+.warn-text {
+  color: #fbbf24;
+}
+
+.info-text {
+  color: #34d399;
+}
+
+.svc-text {
+  color: #c084fc;
+}

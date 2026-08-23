@@ -1,0 +1,100 @@
+<div class="metrics-container">
+  @let metrics = streamService.metrics();
+  @let currentLevel = streamService.filter().level;
+
+  <!-- Total Logs Metric -->
+  <div
+    class="metric-card total"
+    [class.active]="currentLevel === 'all'"
+    (click)="setFilterLevel('all')"
+  >
+    <div class="metric-icon total-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"></line>
+        <line x1="8" y1="12" x2="21" y2="12"></line>
+        <line x1="8" y1="18" x2="21" y2="18"></line>
+        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+      </svg>
+    </div>
+    <div class="metric-details">
+      <span class="metric-label">TOTAL LOGS</span>
+      <span class="metric-value">{{ metrics.total }}</span>
+    </div>
+  </div>
+
+  <!-- Errors Metric -->
+  <div
+    class="metric-card errors"
+    [class.active]="currentLevel === 'error'"
+    [class.has-errors]="metrics.error > 0"
+    (click)="setFilterLevel('error')"
+  >
+    <div class="metric-icon error-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    </div>
+    <div class="metric-details">
+      <span class="metric-label">ERRORS</span>
+      <span class="metric-value error-text">{{ metrics.error }}</span>
+    </div>
+  </div>
+
+  <!-- Warnings Metric -->
+  <div
+    class="metric-card warnings"
+    [class.active]="currentLevel === 'warn'"
+    (click)="setFilterLevel('warn')"
+  >
+    <div class="metric-icon warn-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+    <div class="metric-details">
+      <span class="metric-label">WARNINGS</span>
+      <span class="metric-value warn-text">{{ metrics.warn }}</span>
+    </div>
+  </div>
+
+  <!-- Info Metric -->
+  <div
+    class="metric-card info"
+    [class.active]="currentLevel === 'info'"
+    (click)="setFilterLevel('info')"
+  >
+    <div class="metric-icon info-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+    </div>
+    <div class="metric-details">
+      <span class="metric-label">INFO</span>
+      <span class="metric-value info-text">{{ metrics.info }}</span>
+    </div>
+  </div>
+
+  <!-- Active Services Metric -->
+  <div class="metric-card services">
+    <div class="metric-icon svc-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+        <line x1="6" y1="6" x2="6.01" y2="6"></line>
+        <line x1="6" y1="18" x2="6.01" y2="18"></line>
+      </svg>
+    </div>
+    <div class="metric-details">
+      <span class="metric-label">SERVICES</span>
+      <span class="metric-value svc-text">{{ metrics.services.length }}</span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,81 @@
+<div class="filter-bar">
+  <!-- Search Field -->
+  <div class="search-box">
+    <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input
+      type="text"
+      class="search-input"
+      placeholder="Filter by message, service, keyword (e.g. 500, timeout)..."
+      [ngModel]="streamService.filter().search"
+      (ngModelChange)="onSearchChange($event)"
+    />
+    @if (streamService.filter().search) {
+      <button class="clear-search-btn" (click)="clearSearch()" title="Clear filter">
+        ✕
+      </button>
+    }
+  </div>
+
+  <!-- Level Pills -->
+  <div class="level-pills">
+    @let activeLevel = streamService.filter().level;
+    <button
+      class="pill-btn"
+      [class.active]="activeLevel === 'all'"
+      (click)="setLevel('all')"
+    >
+      All
+    </button>
+    <button
+      class="pill-btn error-pill"
+      [class.active]="activeLevel === 'error'"
+      (click)="setLevel('error')"
+    >
+      <span class="pill-dot error"></span>
+      Errors
+    </button>
+    <button
+      class="pill-btn warn-pill"
+      [class.active]="activeLevel === 'warn'"
+      (click)="setLevel('warn')"
+    >
+      <span class="pill-dot warn"></span>
+      Warnings
+    </button>
+    <button
+      class="pill-btn info-pill"
+      [class.active]="activeLevel === 'info'"
+      (click)="setLevel('info')"
+    >
+      <span class="pill-dot info"></span>
+      Info
+    </button>
+  </div>
+
+  <!-- Service Dropdown -->
+  <div class="service-selector">
+    <label class="select-label" for="service-select">Service:</label>
+    <select
+      id="service-select"
+      class="service-select"
+      [value]="streamService.filter().service"
+      (change)="onServiceChange($event)"
+    >
+      <option value="all">All Services</option>
+      @for (svc of streamService.metrics().services; track svc) {
+        <option [value]="svc">{{ svc }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- Match Counter -->
+  <div class="matches-count">
+    @let filtered = streamService.filteredLogs().length;
+    @let total = streamService.logs().length;
+    <span class="count-highlight">{{ filtered }}</span>
+    <span class="count-label">/ {{ total }} entries</span>
+  </div>
+</div>
