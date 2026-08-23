@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from fastapi import APIRouter, status
+from app.agent.graph import run_incident_pipeline
 from app.models.log import IngestResponse, LogPayload
 from app.services.connection_manager import manager
 
@@ -13,11 +15,10 @@ router = APIRouter(prefix="/logs", tags=["Logs"])
     status_code=status.HTTP_202_ACCEPTED,
     response_model=IngestResponse,
     summary="Ingest log entry",
-    description="Accepts a validated log payload and broadcasts it to all connected WebSocket clients in real time.",
+    description="Accepts a validated log payload, broadcasts it to /ws/logs, and triggers the LangGraph reasoning pipeline asynchronously.",
 )
 async def ingest_log(payload: LogPayload) -> IngestResponse:
-    """Ingest a single log payload and broadcast in real time."""
-    # Convert model to exact dictionary structure for broadcast
+    """Ingest a single log payload, broadcast to /ws/logs, and execute LangGraph pipeline."""
     log_data = {
         "timestamp": payload.timestamp,
         "service": payload.service,
@@ -29,10 +30,13 @@ async def ingest_log(payload: LogPayload) -> IngestResponse:
         f"Ingested log from [{log_data['service']}] at level [{log_data['level']}]: {log_data['message'][:60]}"
     )
 
-    # Broadcast asynchronously to all connected WebSocket clients
+    # 1. Broadcast raw log to /ws/logs subscribers
     await manager.broadcast(log_data)
+
+    # 2. Trigger LangGraph incident reasoning pipeline in background
+    asyncio.create_task(run_incident_pipeline(log_data))
 
     return IngestResponse(
         status="accepted",
-        detail="Log accepted for processing and broadcasting",
+        detail="Log accepted for processing, broadcasting, and agent analysis",
     )

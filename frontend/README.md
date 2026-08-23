@@ -1,68 +1,80 @@
-# Nightshift — Frontend (Phase 1: The Observer)
+# Nightshift — Frontend (Phase 2: The Thinker)
 
-Real-time Live Log Viewer dashboard for the **Nightshift AI SRE Agent**, built with **Angular (standalone components)** and native WebSockets.
-
----
-
-## Features
-
-- ⚡ **Live WebSocket Log Streaming**: Connects to `ws://localhost:8000/ws/logs` with real-time log ingestion.
-- 🔄 **Resilient Auto-Reconnection**: Gracefully handles backend restarts and offline states with live countdown timers and manual retry.
-- 🎨 **Dark Ops Aesthetics**: Sleek dark console theme tailored for SREs with color-coded severity badges:
-  - `INFO`: Cyan/Emerald badge
-  - `WARN`: Amber/Yellow badge
-  - `ERROR`: Rose/Red badge with edge glow
-- ⏱️ **Newest Logs at the Top**: Live updates prepend to the top of the stream.
-- 📜 **Smart Scroll Lock & "New Logs" Indicator**: When scrolling down to review older entries, automatic scrolling is safely held and a floating `"↓ N new logs"` banner appears to jump back to top.
-- 🔍 **Real-Time Filtering & Search**: Instant filtering by log level (`ALL`, `ERRORS`, `WARNINGS`, `INFO`), service name, and free text.
-- 🧪 **Offline Simulation Mode**: Built-in mock telemetry generator allowing full visual testing without requiring an active backend server.
+Real-time Live Log Viewer & AI Reasoning Dashboard for the **Nightshift AI SRE Agent**, built with **Angular (standalone components)** and native WebSockets.
 
 ---
 
-## WebSocket Protocol Specification
+## 📋 Features
 
-The frontend connects to the backend WebSocket endpoint at:
-```
-ws://localhost:8000/ws/logs
-```
+- ⚡ **Dual WebSocket Streaming**:
+  - `ws://localhost:8000/ws/logs`: Live log ingestion stream.
+  - `ws://localhost:8000/ws/agent-thoughts`: Real-time LangGraph agent reasoning stream (Thinking Terminal).
+- 🧠 **Thinking Terminal Panel**:
+  - Live 4-node pipeline stepper (`Filter` → `Summarize` → `Fetch Diff` → `Correlate`).
+  - Active step pulsing loader and monospaced diagnostic thought trace.
+  - Cost-gate nominal badge: Clear `"No anomaly detected — pipeline stopped"` when non-anomalous logs skip expensive LLM steps.
+  - **Root-Cause Hypothesis Card**: High-visibility hypothesis callout, suspect commit SHA pill, and dynamic colored confidence meter (🔴 Low < 50%, 🟡 Moderate 50–79%, 🟢 High ≥ 80%).
+  - **Collapsible Git Diff Inspector**: Review suspect commit diff patches right from the terminal.
+  - **Trace History Accordion**: Review past incident investigations with timestamps, service tags, and confidence scores.
+- 🎛️ **Flexible Workspace Layouts**:
+  - **Split View (Default)**: Side-by-side view (Logs on Left, Thinking Terminal on Right).
+  - **Logs Stream**: Full-width live log viewer.
+  - **Thinking Terminal**: Full-width AI reasoning workspace.
+- 🔄 **Resilient Auto-Reconnection**: Independent auto-reconnection and countdown timers for both WebSockets.
+- 🎨 **Dark Ops Aesthetics**: Sleek dark console theme tailored for SREs with glowing status indicators and glassmorphic panels.
+- 🧪 **Offline Simulation Mode**: Independent simulation buttons for both Log telemetry and Agent thinking traces for local offline testing without a running backend.
 
-### Expected Payload Shape (JSON)
+---
 
+## 📡 WebSocket Specifications
+
+### 1. Raw Log Stream
+- **URL**: `ws://localhost:8000/ws/logs`
 ```json
 {
-  "timestamp": "2026-08-23T12:00:00.000Z",
-  "service": "payment-gw",
+  "timestamp": "2026-08-23T14:30:00.000Z",
+  "service": "payment-gateway",
   "level": "error",
-  "message": "ConnectionTimeoutException: upstream payment vault unreachable after 5000ms"
+  "message": "Database deadlock encountered during transaction #84102"
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `timestamp` | `string` | ISO 8601 timestamp string (e.g., `2026-08-23T12:00:00Z`). |
-| `service` | `string` | Originating service name (e.g., `auth-service`, `k8s-ingress`). |
-| `level` | `string` | Log severity: `"info"`, `"warn"`, or `"error"`. |
-| `message` | `string` | Log description or error details. |
+### 2. Agent Thinking Stream
+- **URL**: `ws://localhost:8000/ws/agent-thoughts`
+```json
+{
+  "timestamp": "2026-08-23T14:30:01.120Z",
+  "node": "correlate_node",
+  "status": "completed",
+  "thought": "Hypothesis generated (Confidence: 88.0%): The incident was caused by commit 7f2a18b...",
+  "confidence": 0.88,
+  "state": {
+    "is_anomaly": true,
+    "error_summary": "Database deadlock in payment-gateway",
+    "git_diff": "Commit 7f2a18b: Added unindexed foreign key...",
+    "suspect_commit": "7f2a18b",
+    "hypothesis": "The incident was caused by commit 7f2a18b...",
+    "confidence": 0.88
+  }
+}
+```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js**: `v18.0.0` or newer (tested on Node v22)
+- **Node.js**: `v18.0.0` or newer
 - **npm**: `v9.0.0` or newer
 
 ### 1. Install Dependencies
-
-From the `frontend/` directory:
-
 ```bash
+cd frontend
 npm install
 ```
 
 ### 2. Run the Development Server
-
 ```bash
 npm start
 # or
@@ -75,18 +87,14 @@ http://localhost:4200
 ```
 
 ### 3. Build for Production
-
 ```bash
 npm run build
 ```
-Production artifacts will be placed in the `dist/` directory.
 
 ---
 
-## Testing Without Backend (Simulate Logs)
+## 🧪 Testing Offline (Without Backend)
 
-If the backend WebSocket server is not running yet:
-1. Open the dashboard at `http://localhost:4200`.
-2. Notice the header displays `"Disconnected — retrying in Xs..."`.
-3. Click the **"Simulate Logs"** button in the top right header (or click **"Simulate Sample Telemetry Stream"** in the empty state).
-4. The dashboard will generate realistic synthetic multi-service cloud logs so you can inspect level badges, filters, search, and the smart scroll banner.
+1. Open `http://localhost:4200`.
+2. In the top navigation, click **"Simulate Logs"** to generate live multi-service logs.
+3. In the **Thinking Terminal** header, click **"Simulate Anomaly"** to run a complete 4-step AI incident investigation trace, or click **"Simulate Nominal"** to preview a cost-gated non-anomaly stop.
