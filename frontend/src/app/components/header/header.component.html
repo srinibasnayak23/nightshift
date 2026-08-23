@@ -1,0 +1,121 @@
+<header class="app-header">
+  <div class="header-left">
+    <div class="logo-box">
+      <div class="radar-emitter">
+        <span class="radar-dot"></span>
+        <span class="radar-wave"></span>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title-row">
+          <span class="brand-name">NIGHTSHIFT</span>
+          <span class="version-tag">PHASE 1</span>
+        </div>
+        <span class="brand-subtitle">Autonomous SRE Observer • Real-time Stream</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-center">
+    <!-- Real-time WebSocket Connection Status Badge -->
+    <div class="connection-badge-container">
+      @let conn = streamService.connectionState();
+
+      @if (conn.status === 'connected') {
+        <div class="status-pill connected" title="Connected to {{ conn.url }}">
+          <span class="indicator-dot connected"></span>
+          <span class="status-label">Connected</span>
+          <span class="ws-endpoint">ws://localhost:8000/ws/logs</span>
+        </div>
+      } @else if (conn.status === 'connecting') {
+        <div class="status-pill connecting" title="Connecting to {{ conn.url }}">
+          <span class="indicator-dot connecting"></span>
+          <span class="status-label">Connecting...</span>
+        </div>
+      } @else {
+        <div class="status-pill disconnected" title="Backend WebSocket unavailable">
+          <span class="indicator-dot disconnected"></span>
+          <span class="status-label">Disconnected</span>
+          <span class="retry-countdown">retrying in {{ conn.retryCountdown }}s</span>
+          <button class="retry-btn" (click)="streamService.retryNow()" title="Retry immediately">
+            Retry
+          </button>
+        </div>
+      }
+
+      <button class="settings-btn" (click)="toggleSettings()" title="Configure WebSocket URL">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+
+      <!-- URL settings popover -->
+      @if (showSettings) {
+        <div class="settings-popover">
+          <div class="popover-title">WebSocket Endpoint</div>
+          <div class="popover-row">
+            <input
+              type="text"
+              class="url-input"
+              [(ngModel)]="customUrl"
+              placeholder="ws://localhost:8000/ws/logs"
+              (keyup.enter)="applyCustomUrl()"
+            />
+            <button class="apply-btn" (click)="applyCustomUrl()">Save</button>
+          </div>
+          <div class="popover-hint">Default: ws://localhost:8000/ws/logs</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="header-right">
+    <!-- Dev Simulation Mode Toggle -->
+    <button
+      class="action-btn sim-btn"
+      [class.active]="streamService.isSimulating()"
+      (click)="streamService.toggleSimulation()"
+      title="Generate synthetic test logs for local offline preview"
+    >
+      <span class="sim-pulse" *ngIf="streamService.isSimulating()"></span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+      <span>{{ streamService.isSimulating() ? 'Simulating' : 'Simulate Logs' }}</span>
+    </button>
+
+    <!-- Pause/Resume Toggle -->
+    <button
+      class="action-btn pause-btn"
+      [class.paused]="streamService.isPaused()"
+      (click)="streamService.togglePause()"
+      title="{{ streamService.isPaused() ? 'Resume live log stream' : 'Pause log stream' }}"
+    >
+      @if (streamService.isPaused()) {
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>Resume</span>
+      } @else {
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+        <span>Pause</span>
+      }
+    </button>
+
+    <!-- Clear Logs -->
+    <button
+      class="action-btn clear-btn"
+      (click)="streamService.clearLogs()"
+      title="Clear all stored logs"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+      <span>Clear</span>
+    </button>
+  </div>
+</header>

@@ -1,0 +1,134 @@
+<div class="log-table-container">
+  <!-- Table Header -->
+  <div class="table-header-row">
+    <div class="col-header col-level">LEVEL</div>
+    <div class="col-header col-time">TIMESTAMP</div>
+    <div class="col-header col-service">SERVICE</div>
+    <div class="col-header col-message">MESSAGE</div>
+    <div class="col-header col-actions">ACTION</div>
+  </div>
+
+  <!-- Scrollable Log Rows List (Newest at top) -->
+  <div #logContainer class="log-scroll-area" (scroll)="onScroll()">
+    @let logs = streamService.filteredLogs();
+
+    @if (logs.length > 0) {
+      @for (log of logs; track log.id) {
+        <div
+          class="log-row"
+          [class.level-error]="log.level === 'error'"
+          [class.level-warn]="log.level === 'warn'"
+          [class.level-info]="log.level === 'info'"
+          [class.expanded]="isExpanded(log.id)"
+          (click)="toggleExpand(log.id)"
+        >
+          <!-- Level Badge -->
+          <div class="log-cell col-level">
+            <span class="level-badge {{ log.level }}">
+              {{ log.level | uppercase }}
+            </span>
+          </div>
+
+          <!-- Timestamp (Monospace, HH:mm:ss.SSS) -->
+          <div class="log-cell col-time" [title]="log.timestamp">
+            <span class="time-text">{{ log.displayTime }}</span>
+          </div>
+
+          <!-- Service Pill with deterministic color tag -->
+          <div class="log-cell col-service">
+            <span class="service-pill {{ getServiceColorClass(log.service) }}">
+              {{ log.service }}
+            </span>
+          </div>
+
+          <!-- Log Message with click to expand -->
+          <div class="log-cell col-message">
+            <div class="message-content" [class.clamp]="!isExpanded(log.id)">
+              {{ log.message }}
+            </div>
+            @if (isExpanded(log.id)) {
+              <div class="expanded-meta">
+                <span class="meta-item"><strong>ISO Time:</strong> {{ log.timestamp }}</span>
+                <span class="meta-item"><strong>ID:</strong> {{ log.id }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="log-cell col-actions" (click)="$event.stopPropagation()">
+            <button
+              class="row-action-btn copy-btn"
+              [class.copied]="copiedLogId() === log.id"
+              (click)="copyLog(log, $event)"
+              title="Copy log entry"
+            >
+              @if (copiedLogId() === log.id) {
+                <span class="copied-text">Copied!</span>
+              } @else {
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              }
+            </button>
+          </div>
+        </div>
+      }
+    } @else {
+      <!-- Empty State -->
+      <div class="empty-state">
+        @if (streamService.logs().length === 0) {
+          <div class="empty-radar">
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring delay-1"></div>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+            </svg>
+          </div>
+          <h3 class="empty-title">Waiting for Live Ingestion</h3>
+          <p class="empty-desc">
+            Listening for incoming messages on WebSocket <code class="ws-code">{{ streamService.connectionState().url }}</code>.
+          </p>
+          <div class="empty-actions">
+            <button
+              class="sim-cta-btn"
+              (click)="streamService.startSimulation()"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              Simulate Sample Telemetry Stream
+            </button>
+          </div>
+        } @else {
+          <div class="no-matches">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <h4 class="no-matches-title">No matching logs</h4>
+            <p class="no-matches-desc">Try adjusting your search query or level filters.</p>
+            <button
+              class="reset-filters-btn"
+              (click)="streamService.updateFilter({ search: '', level: 'all', service: 'all' })"
+            >
+              Reset Filters
+            </button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Floating "New Logs" indicator when scrolled down -->
+  @if (isUserScrolled() && unreadCount() > 0) {
+    <button class="new-logs-banner" (click)="scrollToTop(true)">
+      <span class="banner-pulse"></span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="19" x2="12" y2="5"></line>
+        <polyline points="5 12 12 5 19 12"></polyline>
+      </svg>
+      <span>{{ unreadCount() }} new {{ unreadCount() === 1 ? 'log' : 'logs' }} &bull; Jump to Latest</span>
+    </button>
+  }
+</div>
