@@ -1,68 +1,103 @@
-# Nightshift — Frontend (Phase 1: The Observer)
+# Nightshift — Frontend (Phase 3: The Actor)
 
-Real-time Live Log Viewer dashboard for the **Nightshift AI SRE Agent**, built with **Angular (standalone components)** and native WebSockets.
-
----
-
-## Features
-
-- ⚡ **Live WebSocket Log Streaming**: Connects to `ws://localhost:8000/ws/logs` with real-time log ingestion.
-- 🔄 **Resilient Auto-Reconnection**: Gracefully handles backend restarts and offline states with live countdown timers and manual retry.
-- 🎨 **Dark Ops Aesthetics**: Sleek dark console theme tailored for SREs with color-coded severity badges:
-  - `INFO`: Cyan/Emerald badge
-  - `WARN`: Amber/Yellow badge
-  - `ERROR`: Rose/Red badge with edge glow
-- ⏱️ **Newest Logs at the Top**: Live updates prepend to the top of the stream.
-- 📜 **Smart Scroll Lock & "New Logs" Indicator**: When scrolling down to review older entries, automatic scrolling is safely held and a floating `"↓ N new logs"` banner appears to jump back to top.
-- 🔍 **Real-Time Filtering & Search**: Instant filtering by log level (`ALL`, `ERRORS`, `WARNINGS`, `INFO`), service name, and free text.
-- 🧪 **Offline Simulation Mode**: Built-in mock telemetry generator allowing full visual testing without requiring an active backend server.
+Real-time Live Log Viewer, AI Reasoning Terminal & Human-in-the-Loop Remediation Platform for the **Nightshift AI SRE Agent**, built with **Angular (standalone components)** and native WebSockets.
 
 ---
 
-## WebSocket Protocol Specification
+## 📋 Features
 
-The frontend connects to the backend WebSocket endpoint at:
-```
-ws://localhost:8000/ws/logs
-```
+- ⚡ **Multi-Stream WebSocket Architecture**:
+  - `ws://localhost:8000/ws/logs`: Live log ingestion stream.
+  - `ws://localhost:8000/ws/agent-thoughts`: Real-time LangGraph agent reasoning stream (Thinking Terminal).
+  - `ws://localhost:8000/ws/pending-approvals`: Live stream of actionable remediation proposals awaiting human approval.
+- 🛡️ **Pending Approvals & Human-in-the-Loop Gateway**:
+  - Live incident cards displaying plain-language root-cause hypothesis, diagnostic signature, suspect commit with direct GitHub links, and proposed action (`Restart Service` vs `Rollback Deployment`).
+  - **Inline Safety Confirmation Barrier**: Requires explicit human operator confirmation before dispatching live commands to Render.
+  - **Direct REST Integration**: Submits decision to `POST /incidents/{incident_id}/decision` and displays live execution results (deploy ID, status, and API messages).
+  - **Decision & Execution History**: Audited list of past human decisions and Render outcomes.
+- 🧠 **Thinking Terminal Panel**:
+  - Live pipeline stepper (`Filter` → `Summarize` → `Fetch Diff` → `Correlate` → `Escalate` → `Execute`).
+  - Active step pulsing loader and monospaced diagnostic thought trace.
+  - Root-cause hypothesis card with suspect commit SHA and dynamic colored confidence meter.
+  - Collapsible Git diff inspector.
+- 🎛️ **Flexible Workspace Layouts**:
+  - **Split View (Default)**: Side-by-side view (Logs on Left, Thinking Terminal on Right).
+  - **Logs Stream**: Full-width live log viewer.
+  - **Thinking Terminal**: Full-width AI reasoning workspace.
+  - **Pending Approvals**: Dedicated human-in-the-loop control center with pending badge count.
+- 🔄 **Resilient Auto-Reconnection**: Independent auto-reconnection and countdown timers for all WebSockets.
+- 🧪 **Offline Simulation Mode**: Independent simulation buttons for Logs, Thinking traces, and Remediation Approvals for local offline testing.
 
-### Expected Payload Shape (JSON)
+---
 
+## 📡 API & WebSocket Specifications
+
+### 1. Raw Log Stream
+- **URL**: `ws://localhost:8000/ws/logs`
+
+### 2. Agent Thinking Stream
+- **URL**: `ws://localhost:8000/ws/agent-thoughts`
+
+### 3. Pending Approvals Stream
+- **URL**: `ws://localhost:8000/ws/pending-approvals`
 ```json
 {
-  "timestamp": "2026-08-23T12:00:00.000Z",
-  "service": "payment-gw",
-  "level": "error",
-  "message": "ConnectionTimeoutException: upstream payment vault unreachable after 5000ms"
+  "incident_id": "inc-4b72ef1a",
+  "timestamp": "2026-08-23T14:45:00.000Z",
+  "service": "BloHelp",
+  "error_summary": "Fatal connection pool exhaustion and memory leak",
+  "hypothesis": "Memory exhaustion due to unclosed database connections under concurrent load",
+  "confidence": 0.88,
+  "suspect_commit": "7f2a18b",
+  "action_type": "restart",
+  "status": "pending_approval"
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `timestamp` | `string` | ISO 8601 timestamp string (e.g., `2026-08-23T12:00:00Z`). |
-| `service` | `string` | Originating service name (e.g., `auth-service`, `k8s-ingress`). |
-| `level` | `string` | Log severity: `"info"`, `"warn"`, or `"error"`. |
-| `message` | `string` | Log description or error details. |
+### 4. Human Decision REST Endpoint
+- **URL**: `POST http://localhost:8000/incidents/{incident_id}/decision`
+- **Body**:
+```json
+{
+  "decision": "approved"
+}
+```
+- **Response**:
+```json
+{
+  "incident_id": "inc-4b72ef1a",
+  "decision": "approved",
+  "status": "executed",
+  "action_type": "restart",
+  "execution_result": {
+    "status": "success",
+    "action": "restart",
+    "timestamp": "2026-08-23T14:45:02.120Z",
+    "details": {
+      "success": true,
+      "message": "Successfully triggered restart for service BloHelp."
+    }
+  },
+  "detail": "Incident inc-4b72ef1a remediation [restart] executed successfully."
+}
+```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js**: `v18.0.0` or newer (tested on Node v22)
+- **Node.js**: `v18.0.0` or newer
 - **npm**: `v9.0.0` or newer
 
 ### 1. Install Dependencies
-
-From the `frontend/` directory:
-
 ```bash
+cd frontend
 npm install
 ```
 
 ### 2. Run the Development Server
-
 ```bash
 npm start
 # or
@@ -75,18 +110,15 @@ http://localhost:4200
 ```
 
 ### 3. Build for Production
-
 ```bash
 npm run build
 ```
-Production artifacts will be placed in the `dist/` directory.
 
 ---
 
-## Testing Without Backend (Simulate Logs)
+## 🧪 Testing Offline (Without Backend)
 
-If the backend WebSocket server is not running yet:
-1. Open the dashboard at `http://localhost:4200`.
-2. Notice the header displays `"Disconnected — retrying in Xs..."`.
-3. Click the **"Simulate Logs"** button in the top right header (or click **"Simulate Sample Telemetry Stream"** in the empty state).
-4. The dashboard will generate realistic synthetic multi-service cloud logs so you can inspect level badges, filters, search, and the smart scroll banner.
+1. Open `http://localhost:4200`.
+2. In the top navigation bar, click **"Pending Approvals"**.
+3. Click **"Simulate Restart"** or **"Simulate Rollback"** to spawn a realistic remediation proposal card.
+4. Click **"Approve & Execute"** -> confirm the safety prompt -> preview the execution state transition.
