@@ -1,7 +1,8 @@
 import logging
+import re
 from typing import Any, Type, TypeVar
 from pydantic import BaseModel
-from app.agent.state import CorrelationOutput, ErrorSummaryOutput
+from app.agent.state import CodeFixOutput, CorrelationOutput, ErrorSummaryOutput
 from app.core.config import settings
 
 logger = logging.getLogger("nightshift.llm")
@@ -17,6 +18,7 @@ class MockStructuredModel:
 
     async def ainvoke(self, prompt: Any, *args: Any, **kwargs: Any) -> Any:
         prompt_str = str(prompt)
+        prompt_lower = prompt_str.lower()
         logger.info("Invoking Mock LLM with structured output schema: %s", self.schema.__name__)
 
         if self.schema == ErrorSummaryOutput or self.schema.__name__ == "ErrorSummaryOutput":
@@ -31,20 +33,20 @@ class MockStructuredModel:
                 "notification-worker",
                 "ingress-router",
             ]:
-                if s in prompt_str:
+                if s in prompt_lower:
                     service = s
                     break
 
             error_type = "SystemFailure"
-            if "deadlock" in prompt_str.lower():
+            if "deadlock" in prompt_lower:
                 error_type = "DatabaseDeadlock"
-            elif "timeout" in prompt_str.lower():
+            elif "timeout" in prompt_lower:
                 error_type = "GatewayTimeout"
-            elif "unauthorized" in prompt_str.lower() or "signature" in prompt_str.lower():
+            elif "unauthorized" in prompt_lower or "signature" in prompt_lower:
                 error_type = "AuthenticationError"
-            elif "memory" in prompt_str.lower() or "oom" in prompt_str.lower():
+            elif "memory" in prompt_lower or "oom" in prompt_lower:
                 error_type = "OutOfMemoryException"
-            elif "lock" in prompt_str.lower():
+            elif "lock" in prompt_lower:
                 error_type = "OptimisticLockException"
 
             return ErrorSummaryOutput(
@@ -55,30 +57,45 @@ class MockStructuredModel:
             )
 
         if self.schema == CorrelationOutput or self.schema.__name__ == "CorrelationOutput":
-            prompt_lower = prompt_str.lower()
             deploy_status = "live"
             for status in ["update_failed", "build_failed", "deactivated", "canceled"]:
                 if f"deploy status: {status}" in prompt_lower or f"render status: {status}" in prompt_lower:
                     deploy_status = status
                     break
 
+            # Look specifically in user prompt for literal typo identifiers
+            eval_text = prompt_lower
+            if "### error diagnostic summary:" in prompt_lower:
+                eval_text = prompt_lower.split("### error diagnostic summary:")[1]
+
+            has_typo_or_fixable_bug = any(
+                keyword in eval_text
+                for keyword in ["mngo_uri", "mongo_uri", "mongo_urii", "wrong uri"]
+            )
+
+            if has_typo_or_fixable_bug:
+                status_note = (
+                    f" Render deploy status is '{deploy_status}' (broken deployment)."
+                    if deploy_status != "live"
+                    else ""
+                )
+                return CorrelationOutput(
+                    hypothesis=(
+                        "The diff reveals a literal defect/typo in the code: "
+                        "'- MONGO_URI' was replaced with '+ MNGO_URI'."
+                        f"{status_note} An automated Code Fix commit to GitHub is recommended to restore deployment."
+                    ),
+                    confidence=0.95,
+                )
+
             if deploy_status != "live":
                 return CorrelationOutput(
                     hypothesis=(
-                        f"The git diff contains changes to configuration, but Render deploy status is '{deploy_status}'. "
+                        f"The git diff contains changes, but Render deploy status is '{deploy_status}'. "
                         f"Note: This commit failed to deploy (Render status: {deploy_status}) and is not live in production. "
                         "No rollback or restart of the live container is needed for non-deployed code."
                     ),
                     confidence=0.30,
-                )
-
-            if "mngo_uri" in prompt_lower or "mongo_uri" in prompt_lower:
-                return CorrelationOutput(
-                    hypothesis=(
-                        "The diff reveals a literal typo in the environment variable name: "
-                        "'- MONGO_URI' was replaced with '+ MNGO_URI'. This caused MongoDB connection initialization to fail."
-                    ),
-                    confidence=0.96,
                 )
 
             # Default generic regression hypothesis quoting the suspect commit
@@ -89,6 +106,48 @@ class MockStructuredModel:
                 ),
                 confidence=0.88,
             )
+
+        if self.schema == CodeFixOutput or self.schema.__name__ == "CodeFixOutput":
+            file_path = "server/server.js"
+            path_match = re.search(r"target file path:\s*([^\s\n\r\(\)]+)", prompt_lower)
+            if path_match:
+                candidate = path_match.group(1).strip()
+                if candidate and candidate.endswith((".js", ".ts", ".py", ".json", ".env")):
+                    file_path = candidate
+
+            code_patch = (
+                f"--- a/{file_path}\n"
+                f"+++ b/{file_path}\n"
+                "@@ -15,3 +15,3 @@\n"
+                "-mongoose.connect(process.env.MONGO_URII)\n"
+                "+mongoose.connect(process.env.MONGO_URI)"
+            )
+            updated_content = (
+                "require('dotenv').config();\n"
+                "const express = require('express');\n"
+                "const mongoose = require('mongoose');\n"
+                "const cors = require('cors');\n\n"
+                "const app = express();\n"
+                "app.use(cors());\n"
+                "app.use(express.json());\n\n"
+                "app.use('/api/voters', require('./routes/voters'));\n"
+                "app.get('/health', (_, res) => res.json({ status: 'ok' }));\n\n"
+                "mongoose.connect(process.env.MONGO_URI)\n"
+                "  .then(() => console.log('MongoDB connected successfully'))\n"
+                "  .catch((err) => console.error('MongoDB connection error:', err));\n\n"
+                "const PORT = process.env.PORT || 5000;\n"
+                "app.listen(PORT, () => console.log(`Server running on port ${PORT}`));\n"
+            )
+
+            return CodeFixOutput(
+                is_fixable=True,
+                file_path=file_path,
+                code_patch=code_patch,
+                updated_file_content=updated_content,
+                commit_message="fix(server): correct MONGO_URII typo to MONGO_URI in database connection",
+                explanation="Fixes the typo in environment variable reference from MONGO_URII to MONGO_URI so mongoose connects successfully.",
+            )
+
 
         # Generic fallback
         return self.schema()

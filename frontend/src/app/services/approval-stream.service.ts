@@ -362,6 +362,7 @@ export class ApprovalStreamService {
       confidence: typeof event.confidence === 'number' ? event.confidence : 0.85,
       suspectCommit: event.suspect_commit || 'unknown',
       actionType: event.action_type || 'restart',
+      proposedFix: event.proposed_fix || null,
       status: 'pending',
       isConfirmingApprove: false,
       isConfirmingReject: false,

@@ -125,7 +125,7 @@ def test_pending_approvals_websocket_stream(client: TestClient) -> None:
 
         assert "incident_id" in approval_data
         assert approval_data["status"] == "pending_approval"
-        assert approval_data["action_type"] in ("restart", "rollback")
+        assert approval_data["action_type"] in ("restart", "rollback", "commit_fix")
         assert approval_data["confidence"] >= 0.7
 
 

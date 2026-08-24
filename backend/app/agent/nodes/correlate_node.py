@@ -36,12 +36,12 @@ async def correlate_node(state: IncidentState) -> dict:
         "   - Off-by-one errors, missing punctuation, or inverted boolean conditions\n"
         "2. IDENTIFIER MATCHING: If the error diagnostic text or stack trace mentions an identifier or variable (e.g. `MongoServerError`, `MONGO_URI`, `undefined`), and that identifier or a similar-looking typo appears in the diff, treat that as prime evidence and prioritize it above generic explanations.\n"
         "3. QUOTE EXACT DIFF LINES: You MUST quote the specific line(s) from the diff that you are basing your hypothesis on (e.g., `Diff line: '- MONGO_URI' / '+ MNGO_URI'`). If you cannot identify a specific line in the diff that caused the failure, state this explicitly and assign a lower confidence score (<= 0.4).\n"
-        "4. DEPLOY STATUS AWARENESS:\n"
+        "4. DEPLOY STATUS & REMEDIATION AWARENESS:\n"
         "   - You are provided with the deploy status of the suspect commit on Render (`suspect_commit_deploy_status`).\n"
-        "   - If the deploy status is NOT 'live' (e.g., 'update_failed', 'build_failed', 'deactivated', 'canceled', 'unknown'): the suspect commit NEVER ran in production. You must:\n"
-        "     a) Explicitly state in the hypothesis: 'Note: This commit failed to deploy (Render status: <status>) and is not live in production.'\n"
-        "     b) Significantly lower your confidence score (<= 0.35) because non-deployed code cannot cause active runtime incidents.\n"
-        "     c) Note that no restart or rollback of the live container is needed for code that was never deployed."
+        "   - If the deploy status is NOT 'live' (e.g., 'update_failed', 'build_failed', 'canceled'):\n"
+        "     a) Explicitly note in hypothesis: 'Render deploy status: <status> (deploy failed/broken build)'.\n"
+        "     b) If the diff contains the concrete defect (typo, invalid import, missing env var, wrong URI) that caused the build/deploy failure, assign HIGH confidence (>= 0.85) in the root cause so Nightshift can synthesize an automated Code Fix commit.\n"
+        "     c) Explicitly note that a Code Fix commit to GitHub is required to fix the deployment."
     )
 
     user_prompt = (

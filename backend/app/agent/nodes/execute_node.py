@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from app.agent.state import IncidentState
+from app.agent.tools.github_diff import github_tool
 from app.agent.tools.render_tool import render_tool
 from app.core.config import settings
 from app.services.thought_manager import thought_manager
@@ -13,12 +14,13 @@ async def execute_node(state: IncidentState) -> dict:
     """
     Automated execution node for approved remediation actions.
     Enforces strict safety verification: human_decision MUST be 'approved'.
-    Calls Render API tool for service restart or rollback deployment.
+    Calls GitHub tool to commit fixes, or Render API tool for restart/rollback.
     """
     human_decision = state.get("human_decision")
     action_type = state.get("action_type")
     incident_id = state.get("incident_id", "inc-unknown")
     suspect_commit = state.get("suspect_commit", "")
+    proposed_fix = state.get("proposed_fix") or {}
     target_service_id = settings.render_target_service_id or "BloHelp"
 
     # STRICT SAFETY INVARIANT: Execution cannot run without human approval
@@ -30,17 +32,37 @@ async def execute_node(state: IncidentState) -> dict:
         logger.critical(error_msg)
         raise RuntimeError(error_msg)
 
+    target_desc = (
+        f"GitHub repo [{github_tool.repo}] ({proposed_fix.get('file_path')})"
+        if action_type == "commit_fix"
+        else f"Render service [{target_service_id}]"
+    )
+
     await thought_manager.broadcast_thought(
         node="execute_node",
         status="started",
-        thought=f"Executing approved remediation action [{action_type}] on Render for service [{target_service_id}]...",
+        thought=f"Executing approved remediation action [{action_type}] on {target_desc}...",
     )
 
     execution_timestamp = datetime.now(timezone.utc).isoformat()
     raw_result: dict = {}
 
     try:
-        if action_type == "restart":
+        if action_type == "commit_fix":
+            file_path = proposed_fix.get("file_path", "server/server.js")
+            content = proposed_fix.get("updated_file_content", "")
+            commit_msg = proposed_fix.get(
+                "commit_message", f"fix: automated code patch for incident {incident_id}"
+            )
+            blob_sha = proposed_fix.get("blob_sha")
+            logger.info("Committing approved code fix for [%s] to GitHub...", file_path)
+            raw_result = await github_tool.commit_file_fix(
+                file_path=file_path,
+                content=content,
+                commit_message=commit_msg,
+                blob_sha=blob_sha,
+            )
+        elif action_type == "restart":
             logger.info("Triggering Render service restart for [%s]...", target_service_id)
             raw_result = await render_tool.restart_service(service_id=target_service_id)
         elif action_type == "rollback":
@@ -61,7 +83,7 @@ async def execute_node(state: IncidentState) -> dict:
             }
     except Exception as exc:
         logger.error(
-            "Unexpected error during Render tool invocation: %s", exc, exc_info=True
+            "Unexpected error during tool invocation in execute_node: %s", exc, exc_info=True
         )
         raw_result = {
             "success": False,

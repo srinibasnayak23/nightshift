@@ -13,14 +13,19 @@ def determine_action_type(
     error_summary: str,
     suspect_commit: str,
     deploy_status: str | None = None,
+    proposed_fix: dict | None = None,
 ) -> str:
     """
-    Determine recommended remediation action ('restart', 'rollback', or 'none').
+    Determine recommended remediation action ('commit_fix', 'restart', 'rollback', or 'none').
+    - 'commit_fix' if a concrete code-level patch was generated for the repository.
     - 'none' if suspect commit was never live in production (e.g., 'update_failed', 'build_failed').
     - 'restart' for transient issues: memory leaks, OOM, timeouts, deadlocks, connection exhaustion,
       or when no valid suspect commit is present.
     - 'rollback' when hypothesis points to a specific code regression in a live commit SHA.
     """
+    if proposed_fix and proposed_fix.get("updated_file_content"):
+        return "commit_fix"
+
     if deploy_status and deploy_status.lower() not in ("live", "unknown", ""):
         # Commit never went live
         return "none"
@@ -56,7 +61,7 @@ def determine_action_type(
 async def escalate_node(state: IncidentState) -> dict:
     """
     Escalate high-confidence incident for human-in-the-loop review.
-    Packages hypothesis, suspect commit, confidence, and recommended action.
+    Packages hypothesis, suspect commit, proposed code patch, confidence, and recommended action.
     Broadcasts approval request over /ws/pending-approvals WebSocket.
     """
     incident_id = state.get("incident_id", "inc-unknown")
@@ -64,6 +69,7 @@ async def escalate_node(state: IncidentState) -> dict:
     error_summary = state.get("error_summary", "")
     suspect_commit = state.get("suspect_commit", "unknown")
     deploy_status = state.get("suspect_commit_deploy_status")
+    proposed_fix = state.get("proposed_fix")
     confidence = float(state.get("confidence", 0.0))
 
     await thought_manager.broadcast_thought(
@@ -76,7 +82,11 @@ async def escalate_node(state: IncidentState) -> dict:
     )
 
     action_type = determine_action_type(
-        hypothesis, error_summary, suspect_commit, deploy_status=deploy_status
+        hypothesis,
+        error_summary,
+        suspect_commit,
+        deploy_status=deploy_status,
+        proposed_fix=proposed_fix,
     )
 
     approval_payload = {
@@ -88,15 +98,21 @@ async def escalate_node(state: IncidentState) -> dict:
         "confidence": confidence,
         "suspect_commit": suspect_commit,
         "action_type": action_type,
+        "proposed_fix": proposed_fix,
         "status": "pending_approval",
     }
 
-    # Broadcast to pending approvals WebSocket subscribers (future Android app)
+    # Broadcast to pending approvals WebSocket subscribers (dashboard / Android app)
     await approval_manager.broadcast_pending_approval(approval_payload)
 
+    if action_type == "commit_fix" and proposed_fix:
+        action_desc = f"COMMIT_FIX ({proposed_fix.get('file_path')})"
+    else:
+        action_desc = action_type.upper()
+
     thought_msg = (
-        f"Escalation broadcasted for [{incident_id}]: Recommended action is [{action_type.upper()}] "
-        f"(Suspect commit: {suspect_commit}). Awaiting human operator approval."
+        f"Escalation broadcasted for [{incident_id}]: Recommended action is [{action_desc}]. "
+        "Awaiting human operator approval."
     )
 
     await thought_manager.broadcast_thought(
@@ -116,3 +132,4 @@ async def escalate_node(state: IncidentState) -> dict:
         "action_type": action_type,
         "human_decision": None,
     }
+

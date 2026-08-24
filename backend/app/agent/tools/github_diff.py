@@ -1,3 +1,4 @@
+import base64
 import logging
 import subprocess
 from typing import Any
@@ -8,7 +9,7 @@ logger = logging.getLogger("nightshift.tools.github")
 
 
 class GitHubDiffTool:
-    """Tool for fetching recent commit diffs via GitHub REST API with local git fallback."""
+    """Tool for fetching commit diffs, reading files, and committing code fixes via GitHub REST API."""
 
     def __init__(
         self,
@@ -139,5 +140,142 @@ class GitHubDiffTool:
 
         return f"Recent changes in {self.repo}: Commit 7f2a18b updated connection pool timeouts and error handling.", "7f2a18b"
 
+    async def fetch_file_content(
+        self,
+        file_path: str,
+        branch: str = "master",
+    ) -> tuple[str, str]:
+        """
+        Fetch raw text content and blob SHA for a file in the repository.
+        Returns: (file_content_str, blob_sha)
+        """
+        if not self.repo:
+            return "", ""
+
+        if not self.token:
+            logger.debug("GITHUB_TOKEN not configured. Returning simulated file content.")
+            return "", ""
+
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "Nightshift-AI-SRE/0.3.0",
+            "Authorization": f"Bearer {self.token}",
+        }
+        api_url = f"https://api.github.com/repos/{self.repo}/contents/{file_path.lstrip('/')}"
+        params = {"ref": branch}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(api_url, headers=headers, params=params)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    blob_sha = data.get("sha", "")
+                    content_b64 = data.get("content", "")
+                    raw_text = base64.b64decode(content_b64).decode("utf-8", errors="replace")
+                    return raw_text, blob_sha
+                logger.warning(
+                    "GitHub fetch_file_content HTTP %d for [%s]: %s",
+                    resp.status_code,
+                    file_path,
+                    resp.text[:120],
+                )
+                return "", ""
+        except Exception as exc:
+            logger.warning("Error fetching file content from GitHub for [%s]: %s", file_path, exc)
+            return "", ""
+
+    async def commit_file_fix(
+        self,
+        file_path: str,
+        content: str,
+        commit_message: str,
+        branch: str = "master",
+        blob_sha: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Commit an updated file content directly to the GitHub repository.
+        API: PUT /repos/{owner}/{repo}/contents/{path}
+        """
+        if not self.repo:
+            return {"success": False, "action": "commit_fix", "error": "GITHUB_REPO is not configured."}
+
+        # Simulated fallback if no token
+        if not self.token:
+            logger.info("GITHUB_TOKEN not configured. Simulating commit for [%s].", file_path)
+            return {
+                "success": True,
+                "action": "commit_fix",
+                "simulated": True,
+                "file_path": file_path,
+                "commit_sha": "sim-c0mm17-99",
+                "commit_url": f"https://github.com/{self.repo}/commit/sim-c0mm17-99",
+                "message": f"Simulated commit for {file_path}: {commit_message}",
+            }
+
+        # Always fetch the latest live blob_sha from GitHub right before committing to avoid 409 Conflict
+        _, live_sha = await self.fetch_file_content(file_path, branch=branch)
+        current_sha = live_sha or blob_sha
+
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "Nightshift-AI-SRE/0.3.0",
+            "Authorization": f"Bearer {self.token}",
+        }
+        api_url = f"https://api.github.com/repos/{self.repo}/contents/{file_path.lstrip('/')}"
+        content_b64 = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+
+        body: dict[str, Any] = {
+            "message": commit_message,
+            "content": content_b64,
+            "branch": branch,
+        }
+        if current_sha:
+            body["sha"] = current_sha
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.put(api_url, headers=headers, json=body)
+                # If 409 Conflict occurred (sha changed in interim), re-fetch latest sha and retry once
+                if resp.status_code == 409:
+                    logger.warning("Got HTTP 409 Conflict for [%s]. Re-fetching latest blob SHA and retrying commit...", file_path)
+                    _, retry_sha = await self.fetch_file_content(file_path, branch=branch)
+                    if retry_sha and retry_sha != current_sha:
+                        body["sha"] = retry_sha
+                        resp = await client.put(api_url, headers=headers, json=body)
+
+                if resp.status_code in (200, 201):
+                    data = resp.json()
+                    commit_info = data.get("commit", {})
+                    new_sha = commit_info.get("sha", "unknown-sha")
+                    html_url = commit_info.get("html_url", f"https://github.com/{self.repo}/commit/{new_sha}")
+                    logger.info("Successfully committed fix to [%s] (Commit: %s)", file_path, new_sha)
+                    return {
+                        "success": True,
+                        "action": "commit_fix",
+                        "file_path": file_path,
+                        "commit_sha": new_sha,
+                        "commit_url": html_url,
+                        "message": f"Successfully committed fix to {file_path}: {commit_message}",
+                        "data": data,
+                    }
+
+                error_msg = f"GitHub API commit failed with HTTP {resp.status_code}: {resp.text[:300]}"
+                logger.error(error_msg)
+                return {
+                    "success": False,
+                    "action": "commit_fix",
+                    "file_path": file_path,
+                    "error": error_msg,
+                }
+        except Exception as exc:
+            logger.error("Exception during GitHub commit_file_fix for [%s]: %s", file_path, exc, exc_info=True)
+            return {
+                "success": False,
+                "action": "commit_fix",
+                "file_path": file_path,
+                "error": f"GitHub API connection failed: {str(exc)}",
+            }
+
 
 github_tool = GitHubDiffTool()
+
