@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routes import health_router, incidents_router, logs_router, ws_router
+from app.services.render_log_poller import render_log_poller
 
 # Configure logging format
 logging.basicConfig(
@@ -19,8 +20,10 @@ logger = logging.getLogger("nightshift.app")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for startup and shutdown events."""
     logger.info(f"Starting {settings.app_name} v{settings.app_version}...")
+    await render_log_poller.start()
     yield
     logger.info("Shutting down Nightshift ingestion engine...")
+    await render_log_poller.stop()
 
 
 def create_app() -> FastAPI:

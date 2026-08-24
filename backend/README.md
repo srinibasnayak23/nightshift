@@ -67,15 +67,15 @@ backend/
 │   │   ├── nodes/
 │   │   │   ├── filter_node.py         # Non-LLM rule-based cost gate
 │   │   │   ├── summarize_node.py      # LLM error diagnostics & structured summary
-│   │   │   ├── fetch_diff_node.py     # GitHub diff fetching tool
-│   │   │   ├── correlate_node.py      # LLM root-cause hypothesis & confidence
+│   │   │   ├── fetch_diff_node.py     # GitHub diff fetching tool & Render deploy status
+│   │   │   ├── correlate_node.py      # LLM root-cause hypothesis & confidence (literal diff inspection)
 │   │   │   ├── escalate_node.py       # Action synthesis & WebSocket broadcasting
 │   │   │   ├── low_confidence_node.py # Manual investigation routing
 │   │   │   ├── await_human_node.py    # LangGraph checkpoint hold node
 │   │   │   └── execute_node.py        # Render API execution & audit logging
 │   │   ├── tools/
 │   │   │   ├── github_diff.py         # GitHub REST API client + local git fallback
-│   │   │   └── render_tool.py         # Render API client (restart & rollback deploys)
+│   │   │   └── render_tool.py         # Render API client (deploys status, restart & rollback)
 │   │   ├── graph.py                   # LangGraph StateGraph workflow & runner
 │   │   ├── llm.py                     # Swappable LLM provider (Claude, Gemini, Mock)
 │   │   └── state.py                   # IncidentState TypedDict & Pydantic models
@@ -91,14 +91,15 @@ backend/
 │   ├── services/
 │   │   ├── approval_manager.py        # Pending approvals WebSocket & state manager
 │   │   ├── connection_manager.py      # Raw log connection manager
+│   │   ├── log_service.py             # In-process log ingestion & pipeline trigger
+│   │   ├── render_log_poller.py       # Live Render logs API polling background worker
 │   │   └── thought_manager.py         # Agent thoughts WebSocket broadcaster
-│   └── main.py                        # FastAPI application entrypoint
-├── scripts/
-│   └── simulate_logs.py               # Standalone continuous log generator
+│   └── main.py                        # FastAPI application entrypoint & lifespan
 ├── tests/
 │   ├── conftest.py                    # Test fixtures
 │   ├── test_api.py                    # REST & Phase 1-3 WebSocket / Approval tests
-│   └── test_agent_graph.py            # Phase 2-3 LangGraph & node tests
+│   ├── test_agent_graph.py            # Phase 2-3 LangGraph & node tests
+│   └── test_render_log_poller.py      # Render log poller & ANSI sanitization tests
 ├── .env.example                       # Environment template
 ├── requirements.txt                   # Pinned dependencies
 └── README.md                          # Documentation
@@ -121,9 +122,12 @@ Create a `.env` file in `backend/` or configure environment variables:
 | `GITHUB_REPO` | `srinibasnayak23/BloHelp` | Target monitored repository |
 | `GITHUB_COMMITS_LIMIT`| `5` | Number of recent commits to inspect |
 | `CONFIDENCE_THRESHOLD`| `0.7` | Escalation threshold (0.0–1.0) |
-| `RENDER_API_KEY` | `""` | Render API Key for automated remediation |
+| `RENDER_API_KEY` | `""` | Render API Key for automated remediation & log ingestion |
+| `RENDER_OWNER_ID` | `""` | Render Workspace / Owner ID |
 | `RENDER_TARGET_SERVICE_ID`| `""` | Monitored Render Service ID |
 | `RENDER_BASE_URL` | `https://api.render.com/v1` | Render REST API Base URL |
+| `RENDER_POLL_INTERVAL_SECONDS` | `15.0` | Log polling interval in seconds |
+| `RENDER_SERVICE_NAME` | `BloHelp` | Display name for monitored service |
 
 > [!TIP]
 > If no live API keys are provided, Nightshift automatically uses intelligent deterministic **Mock LLM & Simulated Render Tools** so all unit tests and local workflows run offline without spending tokens or touching production infrastructure!
@@ -148,29 +152,21 @@ pip install -r requirements.txt
 
 ## 🏃 Running the Application
 
-### 1. Start the FastAPI Server
+### Start the FastAPI Server & Real-Time Log Poller
 
-In Terminal 1:
 ```powershell
 cd backend
 .\venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 ```
 
+Upon startup, the background **Render Log Poller** automatically begins polling live runtime logs from BloHelp via `GET /v1/logs`, normalizing ANSI output, broadcasting to `/ws/logs`, and executing the LangGraph analysis pipeline whenever anomalies occur.
+
 - **Interactive API Docs (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
 - **Raw Log Stream**: `ws://localhost:8000/ws/logs`
 - **Agent Thinking Stream**: `ws://localhost:8000/ws/agent-thoughts`
 - **Pending Approvals Stream**: `ws://localhost:8000/ws/pending-approvals`
-
-### 2. Run the Standalone Log Simulator
-
-In Terminal 2:
-```powershell
-cd backend
-.\venv\Scripts\activate
-python scripts/simulate_logs.py
-```
 
 ---
 

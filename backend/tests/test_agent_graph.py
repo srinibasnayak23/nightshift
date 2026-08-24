@@ -134,6 +134,7 @@ async def test_correlate_node() -> None:
         "error_summary": "Database deadlock in BloHelp",
         "git_diff": "Commit a1b2c3d: Added unindexed foreign key in transactions table",
         "suspect_commit": "a1b2c3d",
+        "suspect_commit_deploy_status": "live",
         "hypothesis": "",
         "confidence": 0.0,
         "human_decision": None,
@@ -148,14 +149,70 @@ async def test_correlate_node() -> None:
     assert len(result["hypothesis"]) > 0
 
 
+@pytest.mark.asyncio
+async def test_correlate_node_literal_typo_diff() -> None:
+    """Ensure correlate_node detects literal typo in diff (MNGO_URI vs MONGO_URI) with high confidence."""
+    state: IncidentState = {
+        "incident_id": "inc-typo-1",
+        "raw_log": "error",
+        "is_anomaly": True,
+        "error_summary": "MongoServerError: Authentication failed (MNGO_URI missing)",
+        "git_diff": "--- a/.env\n+++ b/.env\n- MONGO_URI=mongodb://localhost:27017/blohelp\n+ MNGO_URI=mongodb://localhost:27017/blohelp",
+        "suspect_commit": "d6f21dce",
+        "suspect_commit_deploy_status": "live",
+        "hypothesis": "",
+        "confidence": 0.0,
+        "human_decision": None,
+        "action_type": None,
+        "execution_result": None,
+    }
+    result = await correlate_node(state)
+    assert "mngo_uri" in result["hypothesis"].lower() or "mongo_uri" in result["hypothesis"].lower()
+    assert result["confidence"] >= 0.85
+
+
+@pytest.mark.asyncio
+async def test_correlate_node_failed_deploy_lowers_confidence() -> None:
+    """Ensure correlate_node lowers confidence and notes non-live status when deploy failed on Render."""
+    state: IncidentState = {
+        "incident_id": "inc-failed-deploy-1",
+        "raw_log": "error",
+        "is_anomaly": True,
+        "error_summary": "Critical error in BloHelp",
+        "git_diff": "--- a/app.js\n+++ b/app.js\n+ const broken = null.property;",
+        "suspect_commit": "d6f21dce",
+        "suspect_commit_deploy_status": "update_failed",
+        "hypothesis": "",
+        "confidence": 0.0,
+        "human_decision": None,
+        "action_type": None,
+        "execution_result": None,
+    }
+    result = await correlate_node(state)
+    assert "not live" in result["hypothesis"].lower() or "failed to deploy" in result["hypothesis"].lower()
+    assert result["confidence"] <= 0.50
+
+
 def test_determine_action_type() -> None:
-    """Ensure action_type heuristic accurately distinguishes restart vs rollback."""
+    """Ensure action_type heuristic accurately distinguishes restart vs rollback vs none."""
+    # Failed deploy -> none
+    assert (
+        determine_action_type(
+            hypothesis="Code has typo but never deployed",
+            error_summary="SyntaxError",
+            suspect_commit="d6f21dce",
+            deploy_status="update_failed",
+        )
+        == "none"
+    )
+
     # Transient issues -> restart
     assert (
         determine_action_type(
             hypothesis="Memory leak causing OOM",
             error_summary="OutOfMemoryException",
             suspect_commit="a1b2c3d",
+            deploy_status="live",
         )
         == "restart"
     )
@@ -164,6 +221,7 @@ def test_determine_action_type() -> None:
             hypothesis="Gateway timeout under heavy load",
             error_summary="504 Gateway Timeout",
             suspect_commit="a1b2c3d",
+            deploy_status="live",
         )
         == "restart"
     )
@@ -172,16 +230,18 @@ def test_determine_action_type() -> None:
             hypothesis="Database lock contention",
             error_summary="Deadlock detected",
             suspect_commit="unknown",
+            deploy_status=None,
         )
         == "restart"
     )
 
-    # Code regression with valid suspect commit -> rollback
+    # Code regression with valid live suspect commit -> rollback
     assert (
         determine_action_type(
             hypothesis="Commit breaking API contract for auth token validation",
             error_summary="NullPointerException in AuthService.ts",
             suspect_commit="8f3e21a",
+            deploy_status="live",
         )
         == "rollback"
     )
@@ -288,14 +348,20 @@ async def test_render_tool_simulated_methods() -> None:
     assert rollback_res["action"] == "rollback"
     assert rollback_res["simulated"] is True
 
+    deploy_status = await tool.get_deploy_status_for_commit(commit_sha="7f2a18b")
+    assert deploy_status == "live"
+
+
 
 @pytest.mark.asyncio
 async def test_full_pipeline_with_approval_and_execution() -> None:
     """
     Ensure end-to-end flow:
-    1. Ingest anomaly log -> pipeline halts at await_human_node checkpoint
+    1. Ingest anomaly log with live deploy -> pipeline halts at await_human_node checkpoint
     2. Resume pipeline with 'approved' -> execute_node runs and produces execution_result
     """
+    from unittest.mock import AsyncMock, patch
+
     log_payload = {
         "timestamp": "2026-08-23T14:35:00Z",
         "service": "BloHelp",
@@ -304,19 +370,22 @@ async def test_full_pipeline_with_approval_and_execution() -> None:
     }
     incident_id = "inc-test-approval-1"
 
-    # Step 1: Initial execution
-    paused_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
-    assert paused_state["is_anomaly"] is True
-    assert paused_state["confidence"] >= 0.7
-    assert paused_state["action_type"] in ("restart", "rollback")
-    assert paused_state["human_decision"] is None
+    with patch("app.agent.nodes.fetch_diff_node.render_tool.get_deploy_status_for_commit", new_callable=AsyncMock) as mock_deploy:
+        mock_deploy.return_value = "live"
 
-    # Step 2: Resume with approved
-    final_state = await resume_incident_pipeline(incident_id=incident_id, decision="approved")
-    assert final_state["human_decision"] == "approved"
-    assert final_state["execution_result"] is not None
-    exec_res = json.loads(final_state["execution_result"])
-    assert exec_res["status"] == "success"
+        # Step 1: Initial execution
+        paused_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
+        assert paused_state["is_anomaly"] is True
+        assert paused_state["confidence"] >= 0.7
+        assert paused_state["action_type"] in ("restart", "rollback")
+        assert paused_state["human_decision"] is None
+
+        # Step 2: Resume with approved
+        final_state = await resume_incident_pipeline(incident_id=incident_id, decision="approved")
+        assert final_state["human_decision"] == "approved"
+        assert final_state["execution_result"] is not None
+        exec_res = json.loads(final_state["execution_result"])
+        assert exec_res["status"] == "success"
 
 
 @pytest.mark.asyncio
@@ -326,6 +395,8 @@ async def test_full_pipeline_with_rejection() -> None:
     1. Ingest anomaly log -> pipeline halts at await_human_node
     2. Resume pipeline with 'rejected' -> execute_node NEVER runs
     """
+    from unittest.mock import AsyncMock, patch
+
     log_payload = {
         "timestamp": "2026-08-23T14:35:00Z",
         "service": "BloHelp",
@@ -334,12 +405,43 @@ async def test_full_pipeline_with_rejection() -> None:
     }
     incident_id = "inc-test-rejection-1"
 
-    # Step 1: Initial execution
-    paused_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
-    assert paused_state["confidence"] >= 0.7
+    with patch("app.agent.nodes.fetch_diff_node.render_tool.get_deploy_status_for_commit", new_callable=AsyncMock) as mock_deploy:
+        mock_deploy.return_value = "live"
 
-    # Step 2: Resume with rejected
-    final_state = await resume_incident_pipeline(incident_id=incident_id, decision="rejected")
-    assert final_state["human_decision"] == "rejected"
-    # execute_node was skipped, so execution_result remains None
-    assert final_state.get("execution_result") is None
+        # Step 1: Initial execution
+        paused_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
+        assert paused_state["confidence"] >= 0.7
+
+        # Step 2: Resume with rejected
+        final_state = await resume_incident_pipeline(incident_id=incident_id, decision="rejected")
+        assert final_state["human_decision"] == "rejected"
+        # execute_node was skipped, so execution_result remains None
+        assert final_state.get("execution_result") is None
+
+
+@pytest.mark.asyncio
+async def test_full_pipeline_with_failed_deploy() -> None:
+    """
+    Ensure end-to-end flow when commit deploy failed:
+    Pipeline identifies non-live status, assigns low confidence, routes to low_confidence_node, and never halts for approval.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    log_payload = {
+        "timestamp": "2026-08-23T14:35:00Z",
+        "service": "BloHelp",
+        "level": "error",
+        "message": "SyntaxError: Unexpected token in app.js",
+    }
+    incident_id = "inc-test-nonlive-1"
+
+    with patch("app.agent.nodes.fetch_diff_node.render_tool.get_deploy_status_for_commit", new_callable=AsyncMock) as mock_deploy:
+        mock_deploy.return_value = "update_failed"
+
+        final_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
+        assert final_state["is_anomaly"] is True
+        assert final_state["confidence"] < 0.7
+        assert final_state["action_type"] is None
+        assert final_state["execution_result"] == "needs_manual_investigation"
+        assert "not live" in final_state["hypothesis"].lower() or "failed to deploy" in final_state["hypothesis"].lower()
+

@@ -9,14 +9,22 @@ logger = logging.getLogger("nightshift.agent.escalate")
 
 
 def determine_action_type(
-    hypothesis: str, error_summary: str, suspect_commit: str
+    hypothesis: str,
+    error_summary: str,
+    suspect_commit: str,
+    deploy_status: str | None = None,
 ) -> str:
     """
-    Determine recommended remediation action ('restart' vs 'rollback').
+    Determine recommended remediation action ('restart', 'rollback', or 'none').
+    - 'none' if suspect commit was never live in production (e.g., 'update_failed', 'build_failed').
     - 'restart' for transient issues: memory leaks, OOM, timeouts, deadlocks, connection exhaustion,
       or when no valid suspect commit is present.
-    - 'rollback' when hypothesis points to a specific code regression and valid commit SHA.
+    - 'rollback' when hypothesis points to a specific code regression in a live commit SHA.
     """
+    if deploy_status and deploy_status.lower() not in ("live", "unknown", ""):
+        # Commit never went live
+        return "none"
+
     combined_text = f"{hypothesis} {error_summary}".lower()
     transient_indicators = [
         "memory",
@@ -55,6 +63,7 @@ async def escalate_node(state: IncidentState) -> dict:
     hypothesis = state.get("hypothesis", "")
     error_summary = state.get("error_summary", "")
     suspect_commit = state.get("suspect_commit", "unknown")
+    deploy_status = state.get("suspect_commit_deploy_status")
     confidence = float(state.get("confidence", 0.0))
 
     await thought_manager.broadcast_thought(
@@ -66,7 +75,9 @@ async def escalate_node(state: IncidentState) -> dict:
         ),
     )
 
-    action_type = determine_action_type(hypothesis, error_summary, suspect_commit)
+    action_type = determine_action_type(
+        hypothesis, error_summary, suspect_commit, deploy_status=deploy_status
+    )
 
     approval_payload = {
         "incident_id": incident_id,
