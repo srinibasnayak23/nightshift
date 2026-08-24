@@ -11,10 +11,11 @@ class IncidentState(TypedDict):
     error_summary: str
     git_diff: str
     suspect_commit: str
+    suspect_commit_deploy_status: str | None  # "live" | "update_failed" | "build_failed" | "deactivated" | "unknown" | None
     hypothesis: str
     confidence: float
     human_decision: str | None       # "approved" | "rejected" | None
-    action_type: str | None          # "restart" | "rollback" | None
+    action_type: str | None          # "restart" | "rollback" | "none" | None
     execution_result: str | None
 
 

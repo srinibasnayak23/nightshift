@@ -133,6 +133,7 @@ async def run_incident_pipeline(
         "error_summary": "",
         "git_diff": "",
         "suspect_commit": "",
+        "suspect_commit_deploy_status": None,
         "hypothesis": "",
         "confidence": 0.0,
         "human_decision": None,

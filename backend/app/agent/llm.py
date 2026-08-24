@@ -55,10 +55,37 @@ class MockStructuredModel:
             )
 
         if self.schema == CorrelationOutput or self.schema.__name__ == "CorrelationOutput":
+            prompt_lower = prompt_str.lower()
+            deploy_status = "live"
+            for status in ["update_failed", "build_failed", "deactivated", "canceled"]:
+                if f"deploy status: {status}" in prompt_lower or f"render status: {status}" in prompt_lower:
+                    deploy_status = status
+                    break
+
+            if deploy_status != "live":
+                return CorrelationOutput(
+                    hypothesis=(
+                        f"The git diff contains changes to configuration, but Render deploy status is '{deploy_status}'. "
+                        f"Note: This commit failed to deploy (Render status: {deploy_status}) and is not live in production. "
+                        "No rollback or restart of the live container is needed for non-deployed code."
+                    ),
+                    confidence=0.30,
+                )
+
+            if "mngo_uri" in prompt_lower or "mongo_uri" in prompt_lower:
+                return CorrelationOutput(
+                    hypothesis=(
+                        "The diff reveals a literal typo in the environment variable name: "
+                        "'- MONGO_URI' was replaced with '+ MNGO_URI'. This caused MongoDB connection initialization to fail."
+                    ),
+                    confidence=0.96,
+                )
+
+            # Default generic regression hypothesis quoting the suspect commit
             return CorrelationOutput(
                 hypothesis=(
-                    "The incident was likely triggered by a recent commit altering database transaction boundaries, "
-                    "leading to lock contention and service timeouts under concurrent load."
+                    "The diff introduces changes to core request handling in the suspect commit. "
+                    "Diff line: '+ async def handle_request(...)' leading to unexpected downstream timeouts."
                 ),
                 confidence=0.88,
             )

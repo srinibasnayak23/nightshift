@@ -53,11 +53,13 @@ class LogPayload(BaseModel):
             v_lower = v.strip().lower()
             if v_lower in ("info", "warn", "error"):
                 return v_lower
-            # Handle aliases if any (warning -> warn)
+            # Handle aliases if any (warning -> warn, debug/trace -> info, etc.)
             if v_lower in ("warning",):
                 return "warn"
             if v_lower in ("err", "critical", "fatal"):
                 return "error"
+            if v_lower in ("debug", "trace", "notice", "verbose"):
+                return "info"
             raise ValueError(f"Invalid log level: '{v}'. Expected 'info', 'warn', or 'error'.")
         raise ValueError(f"Invalid log level type: {type(v).__name__}")
 

@@ -186,5 +186,76 @@ class RenderTool:
                 "error": f"Render API connection failed: {str(exc)}",
             }
 
+    async def get_deploy_status_for_commit(
+        self, commit_sha: str | None = None, service_id: str | None = None
+    ) -> str | None:
+        """
+        Query Render API GET /v1/services/{serviceId}/deploys to retrieve the deployment
+        status for a given commit SHA (e.g., 'live', 'update_failed', 'build_failed', 'deactivated').
+        """
+        target_id = service_id or self.default_service_id
+        if not target_id:
+            logger.debug("Render deploy status skipped: service_id not configured.")
+            return None
+
+        if not self.api_key:
+            logger.debug("RENDER_API_KEY not configured. Returning simulated deploy status 'live'.")
+            return "live"
+
+        endpoint = f"{self.base_url}/services/{target_id}/deploys"
+        params = {"limit": 10}
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(endpoint, headers=self._get_headers(), params=params)
+                if response.status_code == 200:
+                    deploys = response.json()
+                    if not deploys:
+                        return None
+
+                    if not commit_sha or commit_sha.lower() in ("unknown", "none", ""):
+                        first_deploy = deploys[0].get("deploy", {})
+                        return first_deploy.get("status")
+
+                    clean_sha = commit_sha.strip().lower()
+                    for item in deploys:
+                        deploy_obj = item.get("deploy", {})
+                        commit_obj = deploy_obj.get("commit", {})
+                        deploy_commit_id = str(commit_obj.get("id", "")).lower()
+                        if (
+                            deploy_commit_id.startswith(clean_sha)
+                            or clean_sha.startswith(deploy_commit_id[:7])
+                            or clean_sha == deploy_commit_id
+                        ):
+                            status = deploy_obj.get("status")
+                            logger.info(
+                                "Found Render deploy status [%s] for commit [%s] (Deploy ID: %s)",
+                                status,
+                                commit_sha,
+                                deploy_obj.get("id"),
+                            )
+                            return status
+
+                    # Fallback to latest deploy status if specific commit not found in recent history
+                    latest_deploy = deploys[0].get("deploy", {})
+                    latest_status = latest_deploy.get("status")
+                    logger.info(
+                        "Commit [%s] not in recent 10 deploys. Latest deploy status: [%s]",
+                        commit_sha,
+                        latest_status,
+                    )
+                    return latest_status
+
+                logger.warning(
+                    "Render deploys API returned HTTP %d: %s",
+                    response.status_code,
+                    response.text[:200],
+                )
+                return None
+        except Exception as exc:
+            logger.warning("Failed to query Render deploy status for commit [%s]: %s", commit_sha, exc)
+            return None
+
 
 render_tool = RenderTool()
+

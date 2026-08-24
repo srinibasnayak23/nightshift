@@ -44,10 +44,14 @@ class Settings(BaseModel):
     # Confidence Threshold for Escalation
     confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))
 
-    # Render API Settings (for automated remediation)
+    # Render API Settings (for automated remediation & real-time log ingestion)
     render_api_key: str = os.getenv("RENDER_API_KEY", "")
+    render_owner_id: str = os.getenv("RENDER_OWNER_ID", "")
     render_target_service_id: str = os.getenv("RENDER_TARGET_SERVICE_ID", "")
     render_base_url: str = os.getenv("RENDER_BASE_URL", "https://api.render.com/v1")
+    render_poll_interval_seconds: float = float(os.getenv("RENDER_POLL_INTERVAL_SECONDS", "15.0"))
+    render_service_name: str = os.getenv("RENDER_SERVICE_NAME", "BloHelp")
+    render_poller_enabled: bool = os.getenv("RENDER_POLLER_ENABLED", "true").lower() in ("true", "1", "yes")
 
 
 settings = Settings()
