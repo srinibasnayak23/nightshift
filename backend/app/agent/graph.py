@@ -11,6 +11,7 @@ from app.agent.nodes import (
     execute_node,
     fetch_diff_node,
     filter_node,
+    generate_fix_node,
     low_confidence_node,
     summarize_node,
 )
@@ -31,12 +32,12 @@ def route_after_filter(state: IncidentState) -> str:
 def route_after_correlate(state: IncidentState) -> str:
     """
     Conditional edge routing:
-    confidence >= threshold -> escalate_node,
+    confidence >= threshold -> generate_fix_node,
     confidence < threshold -> low_confidence_node.
     """
     confidence = float(state.get("confidence", 0.0))
     if confidence >= settings.confidence_threshold:
-        return "escalate_node"
+        return "generate_fix_node"
     return "low_confidence_node"
 
 
@@ -61,6 +62,7 @@ def build_incident_graph() -> Any:
     workflow.add_node("summarize_node", summarize_node)
     workflow.add_node("fetch_diff_node", fetch_diff_node)
     workflow.add_node("correlate_node", correlate_node)
+    workflow.add_node("generate_fix_node", generate_fix_node)
     workflow.add_node("escalate_node", escalate_node)
     workflow.add_node("low_confidence_node", low_confidence_node)
     workflow.add_node("await_human_node", await_human_node)
@@ -85,11 +87,12 @@ def build_incident_graph() -> Any:
         "correlate_node",
         route_after_correlate,
         {
-            "escalate_node": "escalate_node",
+            "generate_fix_node": "generate_fix_node",
             "low_confidence_node": "low_confidence_node",
         },
     )
 
+    workflow.add_edge("generate_fix_node", "escalate_node")
     workflow.add_edge("low_confidence_node", END)
     workflow.add_edge("escalate_node", "await_human_node")
 
@@ -136,10 +139,12 @@ async def run_incident_pipeline(
         "suspect_commit_deploy_status": None,
         "hypothesis": "",
         "confidence": 0.0,
+        "proposed_fix": None,
         "human_decision": None,
         "action_type": None,
         "execution_result": None,
     }
+
 
     config = {"configurable": {"thread_id": inc_id}}
 

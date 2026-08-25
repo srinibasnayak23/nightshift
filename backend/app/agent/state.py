@@ -14,8 +14,9 @@ class IncidentState(TypedDict):
     suspect_commit_deploy_status: str | None  # "live" | "update_failed" | "build_failed" | "deactivated" | "unknown" | None
     hypothesis: str
     confidence: float
+    proposed_fix: dict | None        # {"file_path": str, "code_patch": str, "updated_file_content": str, "commit_message": str, "explanation": str}
     human_decision: str | None       # "approved" | "rejected" | None
-    action_type: str | None          # "restart" | "rollback" | "none" | None
+    action_type: str | None          # "commit_fix" | "restart" | "rollback" | "none" | None
     execution_result: str | None
 
 
@@ -53,3 +54,33 @@ class CorrelationOutput(BaseModel):
         le=1.0,
         description="Confidence score strictly between 0.0 and 1.0",
     )
+
+
+class CodeFixOutput(BaseModel):
+    """Structured output for the generate_fix_node LLM call."""
+
+    is_fixable: bool = Field(
+        ...,
+        description="Whether a concrete code-level fix was identified for this incident",
+    )
+    file_path: str = Field(
+        ...,
+        description="Repository file path to be modified (e.g., 'server/server.js')",
+    )
+    code_patch: str = Field(
+        ...,
+        description="Unified diff or before/after snippet demonstrating the exact change",
+    )
+    updated_file_content: str = Field(
+        ...,
+        description="Complete corrected file content ready to be committed to the repository",
+    )
+    commit_message: str = Field(
+        ...,
+        description="Conventional git commit message describing the fix (e.g., 'fix(db): correct MONGO_URII typo in server.js')",
+    )
+    explanation: str = Field(
+        ...,
+        description="Clear explanation of why this code fix resolves the error",
+    )
+

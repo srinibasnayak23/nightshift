@@ -78,12 +78,26 @@ async def submit_decision(
         except Exception:
             parsed_execution = execution_raw
 
-    final_status = "executed" if decision == "approved" else "rejected"
-    detail_msg = (
-        f"Incident {incident_id} remediation [{result_state.get('action_type')}] executed successfully."
-        if decision == "approved"
-        else f"Incident {incident_id} remediation rejected by human operator."
-    )
+    is_success = True
+    if isinstance(parsed_execution, dict):
+        is_success = parsed_execution.get("status") == "success"
+
+    if decision == "approved":
+        final_status = "executed" if is_success else "failed"
+        error_info = (
+            parsed_execution.get("details", {}).get("error")
+            or parsed_execution.get("details", {}).get("message")
+            if isinstance(parsed_execution, dict)
+            else "Execution failed"
+        )
+        detail_msg = (
+            f"Incident {incident_id} remediation [{result_state.get('action_type')}] executed successfully."
+            if is_success
+            else f"Incident {incident_id} remediation failed: {error_info}"
+        )
+    else:
+        final_status = "rejected"
+        detail_msg = f"Incident {incident_id} remediation rejected by human operator."
 
     return DecisionResponse(
         incident_id=incident_id,

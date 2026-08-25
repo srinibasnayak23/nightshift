@@ -1,8 +1,17 @@
 import { ConnectionState } from './log-entry.model';
 
-export type ActionType = 'restart' | 'rollback';
+export type ActionType = 'restart' | 'rollback' | 'commit_fix' | 'none';
 
 export type DecisionType = 'approved' | 'rejected';
+
+export interface ProposedFix {
+  file_path: string;
+  code_patch: string;
+  updated_file_content?: string;
+  commit_message: string;
+  explanation: string;
+  blob_sha?: string;
+}
 
 export type ApprovalCardStatus =
   | 'pending'
@@ -21,6 +30,7 @@ export interface PendingApprovalEvent {
   confidence: number;
   suspect_commit: string;
   action_type: ActionType;
+  proposed_fix?: ProposedFix | null;
   status: string;
 }
 
@@ -32,6 +42,8 @@ export interface DecisionDetails {
     success?: boolean;
     service_id?: string;
     commit_id?: string;
+    commit_sha?: string;
+    commit_url?: string;
     deploy_id?: string;
     status_code?: number;
     message?: string;
@@ -61,6 +73,7 @@ export interface ApprovalItem {
   confidence: number;
   suspectCommit: string;
   actionType: ActionType;
+  proposedFix?: ProposedFix | null;
   status: ApprovalCardStatus;
   humanDecision?: DecisionType;
   resolvedAt?: string;

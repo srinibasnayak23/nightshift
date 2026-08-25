@@ -370,14 +370,21 @@ async def test_full_pipeline_with_approval_and_execution() -> None:
     }
     incident_id = "inc-test-approval-1"
 
-    with patch("app.agent.nodes.fetch_diff_node.render_tool.get_deploy_status_for_commit", new_callable=AsyncMock) as mock_deploy:
+    with patch("app.agent.nodes.fetch_diff_node.render_tool.get_deploy_status_for_commit", new_callable=AsyncMock) as mock_deploy, \
+         patch("app.agent.nodes.execute_node.github_tool.commit_file_fix", new_callable=AsyncMock) as mock_commit:
         mock_deploy.return_value = "live"
+        mock_commit.return_value = {
+            "success": True,
+            "action": "commit_fix",
+            "commit_sha": "sim-c0mm17-1",
+            "message": "Successfully committed fix",
+        }
 
         # Step 1: Initial execution
         paused_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
         assert paused_state["is_anomaly"] is True
         assert paused_state["confidence"] >= 0.7
-        assert paused_state["action_type"] in ("restart", "rollback")
+        assert paused_state["action_type"] in ("restart", "rollback", "commit_fix")
         assert paused_state["human_decision"] is None
 
         # Step 2: Resume with approved
@@ -422,8 +429,8 @@ async def test_full_pipeline_with_rejection() -> None:
 @pytest.mark.asyncio
 async def test_full_pipeline_with_failed_deploy() -> None:
     """
-    Ensure end-to-end flow when commit deploy failed:
-    Pipeline identifies non-live status, assigns low confidence, routes to low_confidence_node, and never halts for approval.
+    Ensure end-to-end flow when commit deploy failed due to a code defect:
+    Pipeline identifies non-live status, identifies the fixable defect, generates a Code Fix patch, and escalates with action_type == 'commit_fix'.
     """
     from unittest.mock import AsyncMock, patch
 
@@ -431,7 +438,7 @@ async def test_full_pipeline_with_failed_deploy() -> None:
         "timestamp": "2026-08-23T14:35:00Z",
         "service": "BloHelp",
         "level": "error",
-        "message": "SyntaxError: Unexpected token in app.js",
+        "message": "MongoServerError: Authentication failed in server.js (wrong uri)",
     }
     incident_id = "inc-test-nonlive-1"
 
@@ -440,8 +447,130 @@ async def test_full_pipeline_with_failed_deploy() -> None:
 
         final_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
         assert final_state["is_anomaly"] is True
-        assert final_state["confidence"] < 0.7
-        assert final_state["action_type"] is None
-        assert final_state["execution_result"] == "needs_manual_investigation"
-        assert "not live" in final_state["hypothesis"].lower() or "failed to deploy" in final_state["hypothesis"].lower()
+        assert final_state["confidence"] >= 0.7
+        assert final_state["action_type"] == "commit_fix"
+        assert final_state["proposed_fix"] is not None
+        assert "server.js" in final_state["proposed_fix"]["file_path"]
+
+
+
+@pytest.mark.asyncio
+async def test_generate_fix_node_synthesizes_patch() -> None:
+    """Ensure generate_fix_node crafts a clean CodeFixOutput with unified diff and updated content."""
+    from app.agent.nodes import generate_fix_node
+
+    state: IncidentState = {
+        "incident_id": "inc-fix-1",
+        "raw_log": "error",
+        "is_anomaly": True,
+        "error_summary": "MongoServerError: Authentication failed (MONGO_URII undefined)",
+        "git_diff": "File: server/server.js\n- mongoose.connect(process.env.MONGO_URI)\n+ mongoose.connect(process.env.MONGO_URII)",
+        "suspect_commit": "7f2a18b",
+        "suspect_commit_deploy_status": "live",
+        "hypothesis": "Typo in variable name MONGO_URII in server/server.js",
+        "confidence": 0.95,
+        "proposed_fix": None,
+        "human_decision": None,
+        "action_type": None,
+        "execution_result": None,
+    }
+
+    result = await generate_fix_node(state)
+    assert "proposed_fix" in result
+    assert result["proposed_fix"] is not None
+    fix = result["proposed_fix"]
+    assert "server/server.js" in fix["file_path"]
+    assert "MONGO_URI" in fix["updated_file_content"]
+    assert len(fix["commit_message"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_execute_node_commit_fix_approved() -> None:
+    """Ensure execute_node executes GitHub commit when action_type is commit_fix and decision is approved."""
+    from unittest.mock import AsyncMock, patch
+
+    approved_fix_state: IncidentState = {
+        "incident_id": "inc-fix-exec-1",
+        "raw_log": "error",
+        "is_anomaly": True,
+        "error_summary": "Typo in server.js",
+        "git_diff": "",
+        "suspect_commit": "7f2a18b",
+        "suspect_commit_deploy_status": "live",
+        "hypothesis": "Typo in server.js",
+        "confidence": 0.95,
+        "proposed_fix": {
+            "file_path": "server/server.js",
+            "code_patch": "--- a/server/server.js\n+++ b/server/server.js\n-MONGO_URII\n+MONGO_URI",
+            "updated_file_content": "require('dotenv').config();\nmongoose.connect(process.env.MONGO_URI);",
+            "commit_message": "fix(server): correct MONGO_URII typo",
+            "explanation": "Fix typo",
+        },
+        "human_decision": "approved",
+        "action_type": "commit_fix",
+        "execution_result": None,
+    }
+
+    with patch("app.agent.nodes.execute_node.github_tool.commit_file_fix", new_callable=AsyncMock) as mock_commit:
+        mock_commit.return_value = {
+            "success": True,
+            "action": "commit_fix",
+            "commit_sha": "c0mm17-99",
+            "message": "Committed fix to server/server.js",
+        }
+
+        result = await execute_node(approved_fix_state)
+        assert "execution_result" in result
+        assert result["execution_result"] is not None
+        exec_data = json.loads(result["execution_result"])
+        assert exec_data["action"] == "commit_fix"
+        assert exec_data["status"] == "success"
+        assert "commit" in exec_data["details"].get("message", "").lower() or exec_data["details"].get("success") is True
+
+
+@pytest.mark.asyncio
+async def test_full_pipeline_with_code_fix_and_commit() -> None:
+    """
+    Ensure end-to-end flow for automated code fix:
+    1. Ingestion -> Filter -> Summarize -> Fetch -> Correlate -> Generate Fix -> Escalate -> Interrupted at await_human_node.
+    2. Verification of proposed_fix and action_type == 'commit_fix'.
+    3. Resume with 'approved' -> execute_node commits to GitHub and logs success.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    log_payload = {
+        "timestamp": "2026-08-23T14:35:00Z",
+        "service": "BloHelp",
+        "level": "error",
+        "message": "MongoServerError: Authentication failed in server.js (MONGO_URII)",
+    }
+    incident_id = "inc-test-code-fix-e2e"
+
+    with patch("app.agent.nodes.fetch_diff_node.render_tool.get_deploy_status_for_commit", new_callable=AsyncMock) as mock_deploy, \
+         patch("app.agent.nodes.execute_node.github_tool.commit_file_fix", new_callable=AsyncMock) as mock_commit:
+        mock_deploy.return_value = "live"
+        mock_commit.return_value = {
+            "success": True,
+            "action": "commit_fix",
+            "commit_sha": "sim-c0mm17-e2e",
+            "message": "Committed fix successfully",
+        }
+
+        # Step 1: Run pipeline
+        paused_state = await run_incident_pipeline(log_payload, incident_id=incident_id)
+        assert paused_state["is_anomaly"] is True
+        assert paused_state["confidence"] >= 0.7
+        assert paused_state["action_type"] == "commit_fix"
+        assert paused_state["proposed_fix"] is not None
+        assert "server/server.js" in paused_state["proposed_fix"]["file_path"]
+
+        # Step 2: Resume with approved
+        final_state = await resume_incident_pipeline(incident_id=incident_id, decision="approved")
+        assert final_state["human_decision"] == "approved"
+        assert final_state["execution_result"] is not None
+        exec_res = json.loads(final_state["execution_result"])
+        assert exec_res["action"] == "commit_fix"
+        assert exec_res["status"] == "success"
+
+
 
