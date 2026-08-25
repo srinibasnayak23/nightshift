@@ -1,0 +1,470 @@
+<div class="approvals-panel">
+  <!-- Approvals Toolbar -->
+  <div class="panel-header">
+    <div class="title-row">
+      <div class="icon-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <polyline points="9 12 11 14 15 10"></polyline>
+        </svg>
+      </div>
+      <div class="title-wrap">
+        <span class="panel-title">PENDING APPROVALS</span>
+        <span class="actor-badge">Human-in-the-Loop Gateway</span>
+      </div>
+
+      <!-- WebSocket Connection Pill -->
+      <div class="conn-pill">
+        @let conn = approvalService.connectionState();
+        @if (conn.status === 'connected') {
+          <span class="conn-dot connected"></span>
+          <span class="conn-text">Approvals Live Stream</span>
+        } @else if (conn.status === 'connecting' || conn.status === 'reconnecting') {
+          <span class="conn-dot connecting"></span>
+          <span class="conn-text">Connecting...</span>
+        } @else {
+          <span class="conn-dot disconnected"></span>
+          <span class="conn-text">Disconnected</span>
+          <button class="conn-retry-btn" (click)="approvalService.retryNow()">Retry</button>
+        }
+
+        <button class="conn-settings-btn" (click)="toggleSettings()" title="Configure Approvals WebSocket URL">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+
+        @if (showSettings) {
+          <div class="settings-popover">
+            <div class="popover-title">Pending Approvals WebSocket URL</div>
+            <div class="popover-row">
+              <input
+                type="text"
+                class="url-input"
+                [(ngModel)]="customUrl"
+                placeholder="ws://localhost:8000/ws/pending-approvals"
+                (keyup.enter)="applyCustomUrl()"
+              />
+              <button class="apply-btn" (click)="applyCustomUrl()">Save</button>
+            </div>
+            <div class="popover-hint">Default: ws://localhost:8000/ws/pending-approvals</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Actions & Dev Simulators -->
+    <div class="header-actions">
+      <button
+        class="action-pill sim-restart"
+        (click)="triggerSimulation('restart')"
+        title="Simulate a pending restart approval"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span>Simulate Restart</span>
+      </button>
+
+      <button
+        class="action-pill sim-rollback"
+        (click)="triggerSimulation('rollback')"
+        title="Simulate a pending rollback approval"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="18" r="3"></circle>
+          <circle cx="6" cy="6" r="3"></circle>
+          <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+          <polyline points="6 9 6 21"></polyline>
+        </svg>
+        <span>Simulate Rollback</span>
+      </button>
+
+      <button
+        class="action-icon-btn"
+        (click)="approvalService.clearHistory()"
+        title="Clear decision history"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Metrics Strip -->
+  <div class="metrics-strip">
+    @let m = approvalService.metrics();
+    <div class="metric-item">
+      <span class="m-label">PENDING APPROVALS</span>
+      <span class="m-value font-mono" [class.pending-alert]="m.totalPending > 0">{{ m.totalPending }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-item">
+      <span class="m-label">APPROVED / EXECUTED</span>
+      <span class="m-value font-mono approved-color">{{ m.totalApproved }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-item">
+      <span class="m-label">REJECTED</span>
+      <span class="m-value font-mono rejected-color">{{ m.totalRejected }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-item">
+      <span class="m-label">AVG CONFIDENCE</span>
+      <span class="m-value font-mono">{{ m.avgConfidence }}%</span>
+    </div>
+  </div>
+
+  <!-- Main Scrollable Body -->
+  <div class="panel-body">
+    <!-- Active Pending Approvals Cards -->
+    @if (approvalService.pendingApprovals().length > 0) {
+      <div class="pending-section">
+        <div class="section-title-row">
+          <div class="pulse-bell"></div>
+          <span class="section-title">ACTIVE INCIDENT REMEDIATION PROPOSALS ({{ approvalService.pendingApprovals().length }})</span>
+        </div>
+
+        <div class="pending-cards-grid">
+          @for (item of approvalService.pendingApprovals(); track item.incidentId) {
+            <div class="approval-card" [class.confirming]="item.isConfirmingApprove || item.isConfirmingReject">
+              <!-- Card Header -->
+              <div class="card-header">
+                <div class="header-left">
+                  <span class="service-pill font-mono">{{ item.service }}</span>
+                  <span class="incident-id font-mono">ID: {{ item.incidentId }}</span>
+                  <span class="card-time font-mono">{{ item.displayTime }}</span>
+                </div>
+
+                <div class="header-right">
+                  <!-- Proposed Action Badge -->
+                  <div class="action-badge" [ngClass]="item.actionType">
+                    @if (item.actionType === 'commit_fix') {
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                      </svg>
+                      <span>Proposed Action: COMMIT CODE FIX TO GITHUB</span>
+                    } @else if (item.actionType === 'restart') {
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                      </svg>
+                      <span>Proposed Action: RESTART SERVICE</span>
+                    } @else {
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="18" cy="18" r="3"></circle>
+                        <circle cx="6" cy="6" r="3"></circle>
+                        <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+                        <polyline points="6 9 6 21"></polyline>
+                      </svg>
+                      <span>Proposed Action: ROLLBACK DEPLOYMENT</span>
+                    }
+                  </div>
+
+                  <!-- Confidence Badge -->
+                  <div class="confidence-pill" [ngClass]="getConfidenceClass(item.confidence)">
+                    <span class="conf-dot"></span>
+                    <span class="conf-score font-mono">{{ getConfidencePercent(item.confidence) }}%</span>
+                    <span class="conf-label">{{ getConfidenceLabel(item.confidence) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Root Cause Hypothesis Box -->
+              <div class="hypothesis-box">
+                <div class="hypo-label-row">
+                  <div class="sparkle-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                  </div>
+                  <span class="hypo-label">AI Root-Cause Hypothesis</span>
+                </div>
+                <p class="hypo-content">{{ item.hypothesis }}</p>
+              </div>
+
+              <!-- Proposed Code Fix Diff Box -->
+              @if (item.proposedFix) {
+                <div class="code-fix-box">
+                  <div class="code-fix-header">
+                    <div class="code-fix-title font-mono">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                      </svg>
+                      <span>PROPOSED PATCH &bull; {{ item.proposedFix.file_path }}</span>
+                    </div>
+                    <span class="commit-msg-pill font-mono">{{ item.proposedFix.commit_message }}</span>
+                  </div>
+                  <pre class="code-diff-preview font-mono">{{ item.proposedFix.code_patch }}</pre>
+                </div>
+              }
+
+              <!-- Error Summary & Suspect Commit Row -->
+              <div class="meta-row">
+                <div class="error-summary-col">
+                  <span class="meta-label">Diagnostic Signature:</span>
+                  <span class="error-summary-text font-mono">{{ item.errorSummary }}</span>
+                </div>
+
+                <div class="suspect-commit-col font-mono">
+                  <span class="meta-label">Suspect Commit:</span>
+                  @if (item.suspectCommit && item.suspectCommit !== 'unknown' && item.suspectCommit !== 'none') {
+                    <a
+                      [href]="getCommitUrl(item.suspectCommit)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="commit-link"
+                      title="View commit diff on GitHub"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="18" r="3"></circle>
+                        <circle cx="6" cy="6" r="3"></circle>
+                        <circle cx="18" cy="6" r="3"></circle>
+                        <path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"></path>
+                        <path d="M12 12v3"></path>
+                      </svg>
+                      <span>{{ item.suspectCommit }}</span>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                    </a>
+                  } @else {
+                    <span class="commit-none">No code commit identified (Transient runtime failure)</span>
+                  }
+                </div>
+              </div>
+
+              <!-- Action Confirmation & Decision Controls -->
+              <div class="card-footer">
+                @if (item.status === 'submitting') {
+                  <!-- Submitting Spinner -->
+                  <div class="submitting-state font-mono">
+                    <div class="spinner"></div>
+                    <span>
+                      {{ item.actionType === 'commit_fix' ? 'Committing code fix to GitHub repo...' : 'Dispatching remediation command to Render API...' }}
+                    </span>
+                  </div>
+                } @else if (item.isConfirmingApprove) {
+                  <!-- Safety Confirmation Box for Approve -->
+                  <div class="safety-confirm-banner approve-confirm">
+                    <div class="confirm-left">
+                      <div class="warning-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                          <line x1="12" y1="9" x2="12" y2="13"></line>
+                          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                      </div>
+                      <div class="confirm-text">
+                        <div class="confirm-headline">Live Action Safety Confirmation</div>
+                        <div class="confirm-desc">
+                          @if (item.actionType === 'commit_fix') {
+                            Are you sure you want to <strong>COMMIT THIS CODE FIX</strong> to GitHub repository <strong>{{ githubRepo }}</strong> and trigger an automated Render redeployment?
+                          } @else {
+                            Are you sure you want to trigger a <strong>LIVE {{ item.actionType | uppercase }}</strong> on service <strong>{{ item.service }}</strong> on Render?
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="confirm-actions">
+                      <button
+                        class="btn-confirm-approve"
+                        (click)="onConfirmDecision(item, 'approved')"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Yes, Confirm & Execute</span>
+                      </button>
+
+                      <button
+                        class="btn-cancel"
+                        (click)="onCancelConfirmation(item)"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                } @else if (item.isConfirmingReject) {
+                  <!-- Confirmation Box for Reject -->
+                  <div class="safety-confirm-banner reject-confirm">
+                    <div class="confirm-left">
+                      <div class="warning-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="15" y1="9" x2="9" y2="15"></line>
+                          <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                      </div>
+                      <div class="confirm-text">
+                        <div class="confirm-headline">Reject Remediation Proposal</div>
+                        <div class="confirm-desc">
+                          Reject this proposed fix? The incident will be marked as requiring manual SRE investigation.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="confirm-actions">
+                      <button
+                        class="btn-confirm-reject"
+                        (click)="onConfirmDecision(item, 'rejected')"
+                      >
+                        <span>Confirm Rejection</span>
+                      </button>
+
+                      <button
+                        class="btn-cancel"
+                        (click)="onCancelConfirmation(item)"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                } @else {
+                  <!-- Standard Approve / Reject Buttons -->
+                  <div class="standard-actions">
+                    <div class="safety-note">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                      <span>
+                        {{ item.actionType === 'commit_fix' ? 'Requires authorization to commit code patch to GitHub' : 'Requires human authorization before executing on Render' }}
+                      </span>
+                    </div>
+
+                    <div class="action-btn-group">
+                      <button
+                        class="btn-reject"
+                        (click)="onRejectClick(item)"
+                        title="Reject proposed remediation"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        <span>Reject Fix</span>
+                      </button>
+
+                      <button
+                        class="btn-approve"
+                        (click)="onApproveClick(item)"
+                        title="Authorize and commit/execute fix"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>{{ item.actionType === 'commit_fix' ? 'Approve & Commit' : 'Approve & Execute' }}</span>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Empty State when no pending approvals -->
+    @if (approvalService.pendingApprovals().length === 0) {
+      <div class="empty-state">
+        <div class="empty-radar-box">
+          <div class="radar-scan"></div>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+        </div>
+        <div class="empty-title">All Systems Nominal • No Pending Approvals</div>
+        <div class="empty-subtitle">
+          Listening on <code class="ws-tag">{{ approvalService.connectionState().url }}</code>.
+          When an anomaly incident is correlated with high confidence (&ge; 70%), an actionable remediation card will appear here for human authorization.
+        </div>
+        <div class="empty-actions">
+          <button class="empty-btn primary" (click)="triggerSimulation('restart')">
+            Simulate Restart Approval
+          </button>
+          <button class="empty-btn secondary" (click)="triggerSimulation('rollback')">
+            Simulate Rollback Approval
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Decision History Section -->
+    @if (approvalService.historyApprovals().length > 0) {
+      <div class="history-section">
+        <div class="history-header-row">
+          <div class="history-title-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span class="history-title">DECISION & EXECUTION HISTORY ({{ approvalService.historyApprovals().length }})</span>
+          </div>
+          <span class="history-sub">Audited human actions and Render deployment outcomes</span>
+        </div>
+
+        <div class="history-list">
+          @for (item of approvalService.historyApprovals(); track item.incidentId) {
+            <div class="history-card" [ngClass]="item.status">
+              <div class="h-card-top">
+                <div class="h-left">
+                  <span class="h-badge" [ngClass]="item.status">{{ item.status | uppercase }}</span>
+                  <span class="h-action font-mono">Action: {{ item.actionType | uppercase }}</span>
+                  <span class="h-service font-mono">{{ item.service }}</span>
+                  <span class="h-incident font-mono">ID: {{ item.incidentId }}</span>
+                </div>
+
+                <div class="h-right font-mono">
+                  <span class="h-resolved-time">Resolved: {{ item.displayResolvedTime || formatIso(item.resolvedAt) }}</span>
+                </div>
+              </div>
+
+              <div class="h-card-body">
+                <p class="h-hypothesis">{{ item.hypothesis }}</p>
+
+                <!-- Execution Result details banner if approved/executed -->
+                @if (item.executionResult) {
+                  <div class="h-exec-banner font-mono" [class.exec-failed]="item.executionResult.status === 'failed'">
+                    <div class="banner-tag">
+                      {{ item.actionType === 'commit_fix' ? 'GITHUB COMMIT OUTCOME:' : 'RENDER EXECUTION OUTCOME:' }}
+                    </div>
+                    <div class="banner-msg">
+                      {{ item.executionResult.details?.message || item.executionResult.details?.error || item.executionResult.status }}
+                      @if (item.executionResult.details?.commit_sha) {
+                        &bull; Commit: <code>{{ item.executionResult.details?.commit_sha }}</code>
+                      }
+                      @if (item.executionResult.details?.commit_url) {
+                        &bull; <a [href]="item.executionResult.details?.commit_url" target="_blank" rel="noopener noreferrer" class="history-commit-link">View Commit ↗</a>
+                      }
+                      @if (item.executionResult.details?.deploy_id) {
+                        &bull; Deploy ID: <code>{{ item.executionResult.details?.deploy_id }}</code>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (item.errorMessage) {
+                  <div class="h-error-banner font-mono">
+                    <span>ERROR: {{ item.errorMessage }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

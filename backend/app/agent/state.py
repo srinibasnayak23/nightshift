@@ -1,0 +1,86 @@
+from typing import TypedDict
+from pydantic import BaseModel, Field
+
+
+class IncidentState(TypedDict):
+    """LangGraph incident pipeline state."""
+
+    incident_id: str
+    raw_log: str
+    is_anomaly: bool
+    error_summary: str
+    git_diff: str
+    suspect_commit: str
+    suspect_commit_deploy_status: str | None  # "live" | "update_failed" | "build_failed" | "deactivated" | "unknown" | None
+    hypothesis: str
+    confidence: float
+    proposed_fix: dict | None        # {"file_path": str, "code_patch": str, "updated_file_content": str, "commit_message": str, "explanation": str}
+    human_decision: str | None       # "approved" | "rejected" | None
+    action_type: str | None          # "commit_fix" | "restart" | "rollback" | "none" | None
+    execution_result: str | None
+
+
+class ErrorSummaryOutput(BaseModel):
+    """Structured output for the summarize_node LLM call."""
+
+    error_type: str = Field(
+        ...,
+        description="Category or type of error (e.g., Timeout, Deadlock, AuthFailure, NullPointer)",
+    )
+    affected_service: str = Field(
+        ...,
+        description="Name of the service where the error occurred",
+    )
+    likely_component: str = Field(
+        ...,
+        description="Specific component or subsystem within the service (e.g., database pool, oauth handler)",
+    )
+    summary: str = Field(
+        ...,
+        description="Concise 1-2 sentence technical summary of the failure",
+    )
+
+
+class CorrelationOutput(BaseModel):
+    """Structured output for the correlate_node LLM call."""
+
+    hypothesis: str = Field(
+        ...,
+        description="Plain-language root cause hypothesis explaining how the suspect commit caused the incident",
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score strictly between 0.0 and 1.0",
+    )
+
+
+class CodeFixOutput(BaseModel):
+    """Structured output for the generate_fix_node LLM call."""
+
+    is_fixable: bool = Field(
+        ...,
+        description="Whether a concrete code-level fix was identified for this incident",
+    )
+    file_path: str = Field(
+        ...,
+        description="Repository file path to be modified (e.g., 'server/server.js')",
+    )
+    code_patch: str = Field(
+        ...,
+        description="Unified diff or before/after snippet demonstrating the exact change",
+    )
+    updated_file_content: str = Field(
+        ...,
+        description="Complete corrected file content ready to be committed to the repository",
+    )
+    commit_message: str = Field(
+        ...,
+        description="Conventional git commit message describing the fix (e.g., 'fix(db): correct MONGO_URII typo in server.js')",
+    )
+    explanation: str = Field(
+        ...,
+        description="Clear explanation of why this code fix resolves the error",
+    )
+

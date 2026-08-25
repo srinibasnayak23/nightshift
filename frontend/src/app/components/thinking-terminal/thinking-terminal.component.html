@@ -1,0 +1,381 @@
+<div class="terminal-panel">
+  <!-- Terminal Top Toolbar -->
+  <div class="terminal-header">
+    <div class="terminal-title-row">
+      <div class="terminal-icon-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+      </div>
+      <div class="terminal-title-wrap">
+        <span class="terminal-title">THINKING TERMINAL</span>
+        <span class="agent-badge">LangGraph Agent</span>
+      </div>
+
+      <!-- Agent Connection Status Pill -->
+      <div class="agent-conn-pill">
+        @let conn = agentService.connectionState();
+        @if (conn.status === 'connected') {
+          <span class="conn-dot connected"></span>
+          <span class="conn-text">Live Agent Stream</span>
+        } @else if (conn.status === 'connecting' || conn.status === 'reconnecting') {
+          <span class="conn-dot connecting"></span>
+          <span class="conn-text">Connecting...</span>
+        } @else {
+          <span class="conn-dot disconnected"></span>
+          <span class="conn-text">Disconnected</span>
+          <button class="conn-retry-btn" (click)="agentService.retryNow()">Retry</button>
+        }
+
+        <button class="conn-settings-btn" (click)="toggleSettings()" title="Configure Agent WebSocket URL">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+
+        @if (showSettings) {
+          <div class="settings-popover">
+            <div class="popover-title">Agent Thoughts WebSocket URL</div>
+            <div class="popover-row">
+              <input
+                type="text"
+                class="url-input"
+                [(ngModel)]="customUrl"
+                placeholder="ws://localhost:8000/ws/agent-thoughts"
+                (keyup.enter)="applyCustomUrl()"
+              />
+              <button class="apply-btn" (click)="applyCustomUrl()">Save</button>
+            </div>
+            <div class="popover-hint">Default: ws://localhost:8000/ws/agent-thoughts</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Terminal Actions -->
+    <div class="terminal-actions">
+      <!-- Filter Anomalies Only -->
+      <button
+        class="action-pill"
+        [class.active]="agentService.filterAnomalyOnly()"
+        (click)="toggleAnomalyFilter()"
+        title="Filter anomaly traces only"
+      >
+        <span class="pill-dot"></span>
+        <span>Anomalies Only</span>
+      </button>
+
+      <!-- Simulate Anomaly Incident -->
+      <button
+        class="action-pill action-sim"
+        (click)="agentService.runSimulatedIncident(true)"
+        title="Simulate an error incident through the LangGraph pipeline"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>Simulate Anomaly</span>
+      </button>
+
+      <!-- Simulate Nominal Log -->
+      <button
+        class="action-pill action-nominal"
+        (click)="agentService.runSimulatedIncident(false)"
+        title="Simulate a nominal log that stops at filter_node cost gate"
+      >
+        <span>Simulate Nominal</span>
+      </button>
+
+      <!-- Clear Traces -->
+      <button
+        class="action-icon-btn"
+        (click)="agentService.clearTraces()"
+        title="Clear thinking history"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Agent Metrics Bar -->
+  <div class="agent-metrics-strip">
+    @let m = agentService.metrics();
+    <div class="metric-item">
+      <span class="m-label">INCIDENTS</span>
+      <span class="m-value font-mono">{{ m.totalTraces }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-item">
+      <span class="m-label">ANOMALIES</span>
+      <span class="m-value font-mono anomaly-color">{{ m.anomaliesDetected }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-item">
+      <span class="m-label">COST-GATED (SAVED)</span>
+      <span class="m-value font-mono nominal-color">{{ m.nominalSkipped }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-item">
+      <span class="m-label">AVG CONFIDENCE</span>
+      <span class="m-value font-mono">{{ m.avgConfidence }}%</span>
+    </div>
+  </div>
+
+  <!-- Main Scrollable Trace Container -->
+  <div class="terminal-body">
+    @if (agentService.filteredTraces().length === 0) {
+      <!-- Empty State -->
+      <div class="empty-terminal-state">
+        <div class="empty-radar-box">
+          <div class="radar-scan"></div>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.5">
+            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+            <path d="M12 12 2.1 12.5"></path>
+            <path d="M12 12l4.5 8.5"></path>
+          </svg>
+        </div>
+        <div class="empty-title">Awaiting Incident Traces</div>
+        <div class="empty-subtitle">
+          Listening on <code class="ws-tag">{{ agentService.connectionState().url }}</code>.
+          When an anomaly is ingested via <code>POST /logs/ingest</code>, the LangGraph reasoning trace will stream here step-by-step.
+        </div>
+        <div class="empty-actions">
+          <button class="empty-action-btn" (click)="agentService.runSimulatedIncident(true)">
+            Test Anomaly Pipeline Trace
+          </button>
+          <button class="empty-action-btn secondary" (click)="agentService.runSimulatedIncident(false)">
+            Test Nominal Cost-Gate Stop
+          </button>
+        </div>
+      </div>
+    } @else {
+      <!-- Active / Focus Trace Card -->
+      @let active = agentService.activeTrace();
+      @if (active) {
+        <div class="active-trace-card" [class.anomaly]="active.isAnomaly" [class.nominal]="!active.isAnomaly">
+          <!-- Trace Card Header -->
+          <div class="trace-card-header">
+            <div class="trace-header-left">
+              <span class="service-tag font-mono">{{ active.service }}</span>
+              <span class="trace-time font-mono">{{ formatTimestamp(active.startedAt) }}</span>
+              
+              @if (active.status === 'running') {
+                <span class="status-badge running">
+                  <span class="pulse-ring"></span>
+                  REASONING IN PROGRESS...
+                </span>
+              } @else if (active.status === 'nominal_stopped') {
+                <span class="status-badge nominal">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  NOMINAL • COST GATE STOPPED
+                </span>
+              } @else {
+                <span class="status-badge completed">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  ROOT CAUSE CORRELATED
+                </span>
+              }
+            </div>
+
+            <!-- Confidence Pill if available -->
+            @if (active.confidence !== undefined) {
+              <div class="confidence-badge" [ngClass]="getConfidenceClass(active.confidence)">
+                <span class="conf-dot"></span>
+                <span class="conf-score font-mono">{{ getConfidencePercent(active.confidence) }}%</span>
+                <span class="conf-label">{{ getConfidenceLabel(active.confidence) }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- Step-by-Step Stepper Flow -->
+          <div class="pipeline-stepper">
+            @for (step of active.steps; track step.node; let idx = $index) {
+              <div class="step-item" [ngClass]="getStepStatusClass(step.status)">
+                <div class="step-marker-col">
+                  <div class="step-node-dot">
+                    @if (step.status === 'running') {
+                      <div class="spinner"></div>
+                    } @else if (step.status === 'completed') {
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    } @else if (step.status === 'skipped') {
+                      <span class="skip-dash">&bull;</span>
+                    } @else {
+                      <span class="pending-num">{{ idx + 1 }}</span>
+                    }
+                  </div>
+                  @if (idx < active.steps.length - 1) {
+                    <div class="step-connector" [class.active-connector]="step.status === 'completed'"></div>
+                  }
+                </div>
+
+                <div class="step-content">
+                  <div class="step-title-row">
+                    <span class="step-title">{{ step.displayName }}</span>
+                    @if (step.displayTime) {
+                      <span class="step-timestamp font-mono">{{ step.displayTime }}</span>
+                    }
+                    <span class="step-status-tag" [ngClass]="step.status">{{ step.status | uppercase }}</span>
+                  </div>
+
+                  @if (step.thought) {
+                    <div class="step-thought-box font-mono">
+                      <span class="prompt-symbol">&gt;</span>
+                      <span class="thought-text">{{ step.thought }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Nominal Result Callout -->
+          @if (active.status === 'nominal_stopped') {
+            <div class="nominal-banner">
+              <div class="nominal-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+              </div>
+              <div class="nominal-content">
+                <div class="nominal-headline">Cost Gate: No Anomaly Detected</div>
+                <div class="nominal-desc">
+                  Pre-filter evaluated log rules and determined standard non-error severity.
+                  Terminated pipeline execution at <code>filter_node</code> to preserve LLM token budget.
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Correlated Root Cause Hypothesis & Diff Box -->
+          @if (active.hypothesis) {
+            <div class="hypothesis-card">
+              <div class="hypo-header">
+                <div class="hypo-title-wrap">
+                  <div class="ai-sparkle-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                  </div>
+                  <span class="hypo-title">Root-Cause Hypothesis</span>
+                </div>
+                
+                @if (active.suspectCommit) {
+                  <div class="suspect-commit-pill font-mono" title="Suspect Commit SHA">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="18" r="3"></circle>
+                      <circle cx="6" cy="6" r="3"></circle>
+                      <circle cx="18" cy="6" r="3"></circle>
+                      <path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"></path>
+                      <path d="M12 12v3"></path>
+                    </svg>
+                    <span>commit: <strong>{{ active.suspectCommit }}</strong></span>
+                  </div>
+                }
+              </div>
+
+              <!-- Hypothesis Text -->
+              <div class="hypo-body">
+                <p class="hypo-text">{{ active.hypothesis }}</p>
+              </div>
+
+              <!-- Confidence Progress Bar -->
+              @if (active.confidence !== undefined) {
+                <div class="confidence-meter-container">
+                  <div class="meter-header">
+                    <span class="meter-label">AI Confidence Assessment</span>
+                    <span class="meter-val font-mono">{{ getConfidencePercent(active.confidence) }}%</span>
+                  </div>
+                  <div class="meter-track">
+                    <div
+                      class="meter-fill"
+                      [ngClass]="getConfidenceClass(active.confidence)"
+                      [style.width.%]="getConfidencePercent(active.confidence)"
+                    ></div>
+                  </div>
+                </div>
+              }
+
+              <!-- Git Diff Inspector Toggle -->
+              @if (active.gitDiff) {
+                <div class="diff-inspector">
+                  <button class="diff-toggle-btn font-mono" (click)="toggleDiff()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="6 9 12 15 18 9" *ngIf="!showDiff()"></polyline>
+                      <polyline points="18 15 12 9 6 15" *ngIf="showDiff()"></polyline>
+                    </svg>
+                    <span>{{ showDiff() ? 'Hide Git Diff Patch' : 'Inspect Suspect Commit Diff' }}</span>
+                  </button>
+
+                  @if (showDiff()) {
+                    <div class="diff-code-box font-mono">
+                      <pre><code>{{ active.gitDiff }}</code></pre>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Past Reasoning Traces History -->
+      @if (agentService.filteredTraces().length > 1) {
+        <div class="traces-history-section">
+          <div class="history-header">
+            <span class="history-title">REASONING TRACE HISTORY ({{ agentService.filteredTraces().length }})</span>
+            <span class="history-hint">Click any previous trace to expand details</span>
+          </div>
+
+          <div class="history-list">
+            @for (trace of agentService.filteredTraces(); track trace.id; let idx = $index) {
+              @if (idx > 0) {
+                <div
+                  class="history-row"
+                  [class.selected]="agentService.selectedTraceId() === trace.id"
+                  (click)="agentService.selectedTraceId.set(trace.id)"
+                >
+                  <div class="h-left">
+                    <span class="h-status-dot" [class.anomaly]="trace.isAnomaly" [class.nominal]="!trace.isAnomaly"></span>
+                    <span class="h-service font-mono">{{ trace.service }}</span>
+                    <span class="h-time font-mono">{{ formatTimestamp(trace.startedAt) }}</span>
+                  </div>
+
+                  <div class="h-center">
+                    @if (trace.status === 'nominal_stopped') {
+                      <span class="h-snippet nominal">Cost Gate: Nominal log bypassed LLM</span>
+                    } @else if (trace.hypothesis) {
+                      <span class="h-snippet anomaly">{{ trace.hypothesis | slice:0:75 }}...</span>
+                    } @else {
+                      <span class="h-snippet">Incident investigation in progress...</span>
+                    }
+                  </div>
+
+                  <div class="h-right">
+                    @if (trace.confidence !== undefined) {
+                      <span class="h-conf-pill font-mono" [ngClass]="getConfidenceClass(trace.confidence)">
+                        {{ getConfidencePercent(trace.confidence) }}%
+                      </span>
+                    } @else {
+                      <span class="h-status-tag font-mono">{{ trace.status }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
