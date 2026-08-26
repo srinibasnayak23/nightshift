@@ -1,7 +1,8 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { ConnectionState, ConnectionStatus, LogEntry, LogFilter, LogLevel, LogMetrics, RawLogPayload } from '../models/log-entry.model';
+import { environment } from '../../environments/environment';
 
-const DEFAULT_WS_URL = 'ws://localhost:8000/ws/logs';
+const DEFAULT_WS_URL = `${environment.wsBaseUrl}/ws/logs`;
 const MAX_LOG_BUFFER = 2500;
 const RECONNECT_INTERVAL_SECONDS = 3;
 
