@@ -24,7 +24,7 @@
         <div class="status-pill connected" title="Connected to {{ conn.url }}">
           <span class="indicator-dot connected"></span>
           <span class="status-label">Connected</span>
-          <span class="ws-endpoint">ws://localhost:8000/ws/logs</span>
+          <span class="ws-endpoint">{{ conn.url }}</span>
         </div>
       } @else if (conn.status === 'connecting') {
         <div class="status-pill connecting" title="Connecting to {{ conn.url }}">
@@ -58,12 +58,12 @@
               type="text"
               class="url-input"
               [(ngModel)]="customUrl"
-              placeholder="ws://localhost:8000/ws/logs"
+              [placeholder]="streamService.connectionState().url"
               (keyup.enter)="applyCustomUrl()"
             />
             <button class="apply-btn" (click)="applyCustomUrl()">Save</button>
           </div>
-          <div class="popover-hint">Default: ws://localhost:8000/ws/logs</div>
+          <div class="popover-hint">Endpoint: {{ streamService.connectionState().url }}</div>
         </div>
       }
     </div>
