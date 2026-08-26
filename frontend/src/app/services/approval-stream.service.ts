@@ -9,9 +9,10 @@ import {
   DecisionType,
   PendingApprovalEvent,
 } from '../models/approval.model';
+import { environment } from '../../environments/environment';
 
-const DEFAULT_APPROVALS_WS_URL = 'ws://localhost:8000/ws/pending-approvals';
-const DEFAULT_API_BASE_URL = 'http://localhost:8000';
+const DEFAULT_APPROVALS_WS_URL = `${environment.wsBaseUrl}/ws/pending-approvals`;
+const DEFAULT_API_BASE_URL = environment.apiBaseUrl;
 const RECONNECT_INTERVAL_SECONDS = 3;
 
 @Injectable({

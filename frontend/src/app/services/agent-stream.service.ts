@@ -7,8 +7,9 @@ import {
   IncidentTrace,
   TraceStep,
 } from '../models/agent-thought.model';
+import { environment } from '../../environments/environment';
 
-const DEFAULT_AGENT_WS_URL = 'ws://localhost:8000/ws/agent-thoughts';
+const DEFAULT_AGENT_WS_URL = `${environment.wsBaseUrl}/ws/agent-thoughts`;
 const MAX_TRACE_HISTORY = 50;
 const RECONNECT_INTERVAL_SECONDS = 3;
 

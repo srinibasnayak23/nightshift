@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApprovalStreamService } from '../../services/approval-stream.service';
 import { ActionType, ApprovalItem, DecisionType } from '../../models/approval.model';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-pending-approvals',
@@ -15,7 +16,7 @@ export class PendingApprovalsComponent {
   public readonly approvalService = inject(ApprovalStreamService);
 
   public showSettings = false;
-  public customUrl = 'ws://localhost:8000/ws/pending-approvals';
+  public customUrl = `${environment.wsBaseUrl}/ws/pending-approvals`;
   public githubRepo = 'srinibasnayak23/BloHelp';
 
   public toggleSettings(): void {

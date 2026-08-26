@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LogStreamService } from '../../services/log-stream.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-header',
@@ -13,7 +14,7 @@ import { LogStreamService } from '../../services/log-stream.service';
 export class HeaderComponent {
   public readonly streamService = inject(LogStreamService);
   public showSettings = false;
-  public customUrl = 'ws://localhost:8000/ws/logs';
+  public customUrl = `${environment.wsBaseUrl}/ws/logs`;
 
   public toggleSettings(): void {
     this.showSettings = !this.showSettings;

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentStreamService } from '../../services/agent-stream.service';
 import { AgentNodeStatus, IncidentTrace } from '../../models/agent-thought.model';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-thinking-terminal',
@@ -17,7 +18,7 @@ export class ThinkingTerminalComponent {
   // Expanded git diffs state
   public showDiff = signal<boolean>(false);
   public showSettings = false;
-  public customUrl = 'ws://localhost:8000/ws/agent-thoughts';
+  public customUrl = `${environment.wsBaseUrl}/ws/agent-thoughts`;
 
   public toggleDiff(): void {
     this.showDiff.update((v) => !v);
